@@ -1913,6 +1913,14 @@ function renderBalance() {
     .filter(c => c.estado === 'pendiente' && c.fecha && c.fecha.startsWith(currentYear))
     .reduce((s, c) => s + (c.monto || 0), 0);
 
+  // ── Activos desde gastos (Mobiliario, Equipos) — must be before totalNoCorriente
+  const ACTIVOS_CONCEPTOS = ['Mobiliario (Activo)', 'Equipos (Activo)'];
+  const activosAuto = {};
+  ACTIVOS_CONCEPTOS.forEach(c => { activosAuto[c] = 0; });
+  state.gastos.filter(g => g.estado === 'pagado' && ACTIVOS_CONCEPTOS.includes(g.concepto))
+    .forEach(g => { activosAuto[g.concepto] += (g.monto || 0); });
+  const activosAutoTotal = ACTIVOS_CONCEPTOS.reduce((s,c) => s + activosAuto[c], 0);
+
   // ── Totals
   const totalCorriente = caja + cxc + bsManual.corriente.reduce((s,r) => s + r.monto, 0);
   const totalNoCorriente = activosAutoTotal + bsManual.equipamiento + bsManual.software + bsManual.noCorriente.reduce((s,r) => s + r.monto, 0);
@@ -1967,13 +1975,7 @@ function renderBalance() {
   html += totalRow('Total activo corriente', totalCorriente);
   html += sec('Activo no corriente');
 
-  // Mobiliario y Equipos — auto desde gastos pagados
-  const ACTIVOS_CONCEPTOS = ['Mobiliario (Activo)', 'Equipos (Activo)'];
-  const activosAuto = {};
-  ACTIVOS_CONCEPTOS.forEach(c => { activosAuto[c] = 0; });
-  state.gastos.filter(g => g.estado === 'pagado' && ACTIVOS_CONCEPTOS.includes(g.concepto))
-    .forEach(g => { activosAuto[g.concepto] += (g.monto || 0); });
-
+  // Mobiliario y Equipos — auto desde gastos pagados (variables ya calculadas arriba)
   ACTIVOS_CONCEPTOS.forEach(c => {
     const val = activosAuto[c];
     if(val > 0) {
@@ -1983,7 +1985,6 @@ function renderBalance() {
       </tr>`;
     }
   });
-  const activosAutoTotal = ACTIVOS_CONCEPTOS.reduce((s,c) => s + activosAuto[c], 0);
 
   // Equipamiento — editable monto
   html += `<tr onmouseover="this.style.background='var(--bg-secondary)'" onmouseout="this.style.background=''">
