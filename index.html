@@ -2322,12 +2322,19 @@ function cfdRebuild(id) {
   const sel = cfdState[id] || new Set();
   const allSel = sel.size === 0;
   const list = wrap.querySelector('.cfd-list');
+  const esc = s => String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;');
   list.innerHTML =
-    `<div class="cfd-item${allSel ? ' cfd-sel' : ''}" onclick="cfdPickAll('${id}')"><span class="cfd-chk">${allSel ? '☑' : '☐'}</span> Todos</div>` +
+    `<div class="cfd-item${allSel ? ' cfd-sel' : ''}" data-cfd-id="${id}" data-cfd-val="" onclick="cfdPickEl(this)"><span class="cfd-chk">${allSel ? '☑' : '☐'}</span> Todos</div>` +
     (vals.length ? vals.map(v => {
       const vs = String(v); const chk = sel.has(vs);
-      return `<div class="cfd-item${chk ? ' cfd-sel' : ''}" onclick="cfdPick('${id}',${JSON.stringify(vs)})"><span class="cfd-chk">${chk ? '☑' : '☐'}</span> ${v}</div>`;
+      return `<div class="cfd-item${chk ? ' cfd-sel' : ''}" data-cfd-id="${id}" data-cfd-val="${esc(vs)}" onclick="cfdPickEl(this)"><span class="cfd-chk">${chk ? '☑' : '☐'}</span> ${v}</div>`;
     }).join('') : '<div class="cfd-empty">Sin resultados</div>');
+}
+
+function cfdPickEl(el) {
+  const id = el.dataset.cfdId;
+  const val = el.dataset.cfdVal;
+  if (val === '') cfdPickAll(id); else cfdPick(id, val);
 }
 
 function cfdPick(id, value) {
