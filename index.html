@@ -1799,8 +1799,8 @@ function renderPnlTable() {
   const cls = n => n > 0 ? 'pos' : n < 0 ? 'neg' : '';
 
   const thFirst = 'padding:8px 16px;text-align:left;font-size:11px;font-weight:500;color:var(--text-secondary);border-bottom:0.5px solid var(--border-md);min-width:200px;position:sticky;left:0;background:var(--bg-secondary)';
-  const th = 'padding:8px 14px;text-align:left;font-size:11px;font-weight:600;color:var(--text-primary);border-bottom:0.5px solid var(--border-md);border-left:1px solid var(--border-md);min-width:130px;white-space:nowrap';
-  const thTotal = 'padding:8px 14px;text-align:left;font-size:11px;font-weight:600;color:var(--text-primary);border-bottom:0.5px solid var(--border-md);min-width:130px;white-space:nowrap;border-left:2px solid var(--border-md);background:var(--bg-secondary)';
+  const th = 'padding:8px 14px;text-align:right;font-size:11px;font-weight:600;color:var(--text-primary);border-bottom:0.5px solid var(--border-md);border-left:1px solid var(--border-md);min-width:130px;white-space:nowrap';
+  const thTotal = 'padding:8px 14px;text-align:right;font-size:11px;font-weight:600;color:var(--text-primary);border-bottom:0.5px solid var(--border-md);min-width:130px;white-space:nowrap;border-left:2px solid var(--border-md);background:var(--bg-secondary)';
 
   const data = {};
   periods.forEach(p => { data[p] = getPnlDataForPeriod(p); });
@@ -1828,8 +1828,8 @@ function renderPnlTable() {
     </thead><tbody>`;
 
   const tdTotal = (v, pct='', bold=false, bg='', extraAttrs='') => showTotal ? `
-    <td ${extraAttrs} style="text-align:left;padding:${bold?'10':'6'}px 14px;${bold?'font-weight:600;':''}font-variant-numeric:tabular-nums;border-left:2px solid var(--border-md);background:${bg||'var(--bg-secondary)'}" class="${cls(v)}">${fmt$(v)}</td>
-    <td style="text-align:left;padding:${bold?'10':'6'}px 14px;font-size:11px;color:var(--text-tertiary);background:${bg||'var(--bg-secondary)'};">${pct}</td>` : '';
+    <td ${extraAttrs} style="text-align:right;padding:${bold?'10':'6'}px 14px;${bold?'font-weight:600;':''}font-variant-numeric:tabular-nums;border-left:2px solid var(--border-md);background:${bg||'var(--bg-secondary)'}" class="${cls(v)}">${fmt$(v)}</td>
+    <td style="text-align:right;padding:${bold?'10':'6'}px 14px;font-size:11px;color:var(--text-tertiary);background:${bg||'var(--bg-secondary)'};">${pct}</td>` : '';
 
   const sectionRow = label => `<tr style="background:var(--bg-secondary)">
     <td style="padding:6px 16px;font-size:10px;font-weight:500;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.06em;position:sticky;left:0;background:var(--bg-secondary)">${label}</td>
@@ -1844,7 +1844,7 @@ function renderPnlTable() {
     return `<tr style="${border}" onmouseover="this.style.background='var(--bg-secondary)'" onmouseout="this.style.background=''">
       <td style="padding:${bold?'8':'6'}px 16px ${bold?'8':'6'}px ${bold?'16':'28'}px;font-size:12px;${bold?'font-weight:500':'color:var(--text-secondary)'};position:sticky;left:0;background:inherit">${label}</td>
       ${tdTotal(totalVal, totalPct, bold, '', totalClick)}
-      ${vals.map((v,i) => `<td ${cellClick(periods[i])} style="text-align:left;padding:${bold?'8':'6'}px 14px;${bold?'font-weight:500;':''}font-variant-numeric:tabular-nums;border-left:1px solid var(--border-md)" class="${cls(v)}">${fmt$(v)}</td>`).join('')}
+      ${vals.map((v,i) => `<td ${cellClick(periods[i])} style="text-align:right;padding:${bold?'8':'6'}px 14px;${bold?'font-weight:500;':''}font-variant-numeric:tabular-nums;border-left:1px solid var(--border-md)" class="${cls(v)}">${fmt$(v)}</td>`).join('')}
     </tr>`;
   };
 
@@ -1868,11 +1868,11 @@ function renderPnlTable() {
   html += `<tr style="border-top:2px solid var(--border-md)">
     <td style="padding:10px 16px;font-size:13px;font-weight:600;position:sticky;left:0;background:${resBg(total.resultado)}">Resultado neto</td>
     ${showTotal ? `
-      <td style="text-align:left;padding:10px 14px;font-size:13px;font-weight:600;font-variant-numeric:tabular-nums;border-left:2px solid var(--border-md);background:${resBg(total.resultado)}" class="${cls(total.resultado)}">${fmt$(total.resultado)}</td>
-      <td style="text-align:left;padding:10px 14px;font-size:12px;font-weight:500;background:${resBg(total.resultado)};color:var(--text-secondary)">${fmtPct(total.resultado, total.ventas)}</td>` : ''}
+      <td style="text-align:right;padding:10px 14px;font-size:13px;font-weight:600;font-variant-numeric:tabular-nums;border-left:2px solid var(--border-md);background:${resBg(total.resultado)}" class="${cls(total.resultado)}">${fmt$(total.resultado)}</td>
+      <td style="text-align:right;padding:10px 14px;font-size:12px;font-weight:500;background:${resBg(total.resultado)};color:var(--text-secondary)">${fmtPct(total.resultado, total.ventas)}</td>` : ''}
     ${periods.map(p => {
       const r = data[p].resultado;
-      return `<td style="text-align:left;padding:10px 14px;font-size:13px;font-weight:600;font-variant-numeric:tabular-nums;border-left:1px solid var(--border-md);background:${resBg(r)}" class="${cls(r)}">${fmt$(r)}</td>`;
+      return `<td style="text-align:right;padding:10px 14px;font-size:13px;font-weight:600;font-variant-numeric:tabular-nums;border-left:1px solid var(--border-md);background:${resBg(r)}" class="${cls(r)}">${fmt$(r)}</td>`;
     }).join('')}
   </tr>`;
 
