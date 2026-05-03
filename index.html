@@ -3405,177 +3405,153 @@ function renderCfTable() {
 
   const months = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
 
-  // Determine which months to show
   const visibleMonths = selectedCfMonths.size > 0
     ? [...selectedCfMonths].sort((a,b) => a-b)
     : [...Array(12).keys()];
 
-  const fmt$ = n => n > 0 ? '$' + Math.round(n).toLocaleString('es-AR') : n < 0 ? '-$' + Math.round(Math.abs(n)).toLocaleString('es-AR') : '$0';
+  const fmt$ = n => n === 0 ? '$0' : (n > 0 ? '$' : '-$') + Math.round(Math.abs(n)).toLocaleString('es-AR');
+  const fmtSigned = n => n === 0 ? '$0' : (n > 0 ? '+$' : '-$') + Math.round(Math.abs(n)).toLocaleString('es-AR');
   const cls = n => n > 0 ? 'pos' : n < 0 ? 'neg' : '';
+  const resBg = n => n > 0 ? 'var(--success-bg)' : n < 0 ? 'var(--danger-bg)' : 'var(--bg-secondary)';
 
-  // Cobranzas de Venta — cobros con estado=cobrado, por fecha de cobro
+  // ── Estilos iguales al P&L ──────────────────────────────────────────────
+  const thFirst = 'padding:8px 16px;text-align:left;font-size:11px;font-weight:500;color:var(--text-secondary);border-bottom:0.5px solid var(--border-md);min-width:200px;position:sticky;left:0;background:var(--bg-secondary)';
+  const thAcum  = 'padding:8px 14px;text-align:right;font-size:11px;font-weight:600;color:var(--text-primary);border-bottom:0.5px solid var(--border-md);white-space:nowrap;border-left:2px solid var(--border-md);background:var(--bg-secondary);min-width:130px';
+  const thMonth = 'padding:8px 14px;text-align:right;font-size:11px;font-weight:600;color:var(--text-primary);border-bottom:0.5px solid var(--border-md);border-left:1px solid var(--border-md);min-width:110px;white-space:nowrap';
+
+  const tdNum = (v, bold=false) =>
+    `<td style="text-align:right;padding:${bold?'8':'6'}px 14px;${bold?'font-weight:500;':''}font-variant-numeric:tabular-nums;border-left:1px solid var(--border-md)" class="${cls(v)}">${fmt$(v)}</td>`;
+
+  const tdAcum = (v, bold=false) =>
+    `<td style="text-align:right;padding:${bold?'8':'6'}px 14px;${bold?'font-weight:600;':''}font-variant-numeric:tabular-nums;border-left:2px solid var(--border-md);background:var(--bg-secondary)" class="${cls(v)}">${fmt$(v)}</td>`;
+
+  const tdEdit = (v, id, onclick) =>
+    `<td id="${id}" onclick="${onclick}"
+      style="text-align:right;padding:6px 14px;font-variant-numeric:tabular-nums;cursor:pointer;border-left:1px solid var(--border-md)"
+      onmouseover="this.style.background='var(--info-bg)'" onmouseout="this.style.background=''"
+      class="${cls(v)}" title="Click para editar">${v !== 0 ? fmt$(v) : '<span style="color:var(--text-tertiary);font-size:11px">+</span>'}</td>`;
+
+  const sectionRow = label => `<tr style="background:var(--bg-secondary)">
+    <td style="padding:6px 16px;font-size:10px;font-weight:500;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.06em;position:sticky;left:0;background:var(--bg-secondary)">${label}</td>
+    <td style="background:var(--bg-secondary);border-left:2px solid var(--border-md)"></td>
+    ${visibleMonths.map(() => `<td style="background:var(--bg-secondary)"></td>`).join('')}
+  </tr>`;
+
+  // ── Datos ───────────────────────────────────────────────────────────────
   const cobranzasPorMes = Array(12).fill(0);
-  state.cobros
-    .filter(c => c.estado === 'cobrado')
-    .forEach(c => {
-      const dateRef = c.fechaCobro || c.fecha;
-      if(!dateRef) return;
-      const year = parseInt(dateRef.substring(0,4));
-      const month = parseInt(dateRef.substring(5,7)) - 1;
-      if(year === cfYear && month >= 0 && month < 12) {
-        cobranzasPorMes[month] += (c.monto || 0);
-      }
-    });
+  state.cobros.filter(c => c.estado === 'cobrado').forEach(c => {
+    const dateRef = c.fechaCobro || c.fecha;
+    if(!dateRef) return;
+    const year = parseInt(dateRef.substring(0,4));
+    const month = parseInt(dateRef.substring(5,7)) - 1;
+    if(year === cfYear && month >= 0 && month < 12) cobranzasPorMes[month] += (c.monto || 0);
+  });
 
-  // Otros Ingresos — ingreso manual por mes
-  const otrosPorMes = Array(12).fill(0).map((_,i) => getCfOtros(cfYear, i));
-
-  // Totales ingresos
+  if(!otrosIngresos[cfYear]) otrosIngresos[cfYear] = {};
+  const otrosPorMes      = Array(12).fill(0).map((_,i) => getCfOtros(cfYear, i));
+  const otrosEgresosPorMes = Array(12).fill(0).map((_,i) => otrosIngresos[cfYear]['e'+i] || 0);
   const totalIngresosPorMes = cobranzasPorMes.map((v,i) => v + otrosPorMes[i]);
+
   const totalCobranzas = visibleMonths.reduce((s,i) => s + cobranzasPorMes[i], 0);
-  const totalOtros = visibleMonths.reduce((s,i) => s + otrosPorMes[i], 0);
-  const totalIngresos = totalCobranzas + totalOtros;
+  const totalOtros     = visibleMonths.reduce((s,i) => s + otrosPorMes[i], 0);
+  const totalIngresos  = totalCobranzas + totalOtros;
 
-  // Styles
-  const thStyle = 'padding:8px 12px;text-align:right;font-size:11px;font-weight:500;color:var(--text-secondary);white-space:nowrap;border-bottom:0.5px solid var(--border-md)';
-  const thFirst = 'padding:8px 16px;text-align:left;font-size:11px;font-weight:500;color:var(--text-secondary);border-bottom:0.5px solid var(--border-md);min-width:180px';
-  const thAcum = 'padding:8px 14px;text-align:right;font-size:11px;font-weight:600;color:var(--text-primary);border-bottom:0.5px solid var(--border-md);white-space:nowrap;border-left:2px solid var(--border-md);background:var(--bg-secondary)';
-  const tdNum = (v, bold=false) => `<td style="text-align:right;padding:8px 12px;${bold?'font-weight:500;':''}font-variant-numeric:tabular-nums" class="${cls(v)}">${fmt$(v)}</td>`;
-  const tdAcum = (v, bold=false) => `<td style="text-align:right;padding:8px 14px;${bold?'font-weight:600;':''}font-variant-numeric:tabular-nums;border-left:2px solid var(--border-md);background:var(--bg-secondary)" class="${cls(v)}">${fmt$(v)}</td>`;
-  const tdEdit = (v, month) => `<td id="cf-otros-${month}" onclick="openCfOtros(${month})"
-    style="text-align:right;padding:8px 12px;font-variant-numeric:tabular-nums;cursor:pointer;border-radius:4px"
-    onmouseover="this.style.background='var(--info-bg)'" onmouseout="this.style.background=''"
-    class="${cls(v)}" title="Click para editar">${v > 0 ? fmt$(v) : '<span style=\'color:var(--text-tertiary);font-size:11px\'>+</span>'}</td>`;
+  const conceptos = [
+    'Sueldos y CCSS','Otros Gs. Personal','Gs. Administrativos',
+    'Alquiler Oficina','Expensas','Otros Gs. Oficina','Impuestos',
+    'Marketing Digital','Honorarios Profesionales','Mobiliario (Activo)','Equipos (Activo)',
+  ];
 
-  let html = `<table style="width:100%;border-collapse:collapse;font-size:12px">
+  const egresosPorConcepto = {};
+  conceptos.forEach(c => { egresosPorConcepto[c] = Array(12).fill(0); });
+  state.gastos.filter(g => g.estado === 'pagado' && g.fechaPago).forEach(g => {
+    const year = parseInt(g.fechaPago.substring(0,4));
+    const month = parseInt(g.fechaPago.substring(5,7)) - 1;
+    if(year === cfYear && month >= 0 && month < 12) {
+      const key = g.concepto && conceptos.includes(g.concepto) ? g.concepto : null;
+      if(key) egresosPorConcepto[key][month] += (g.monto || 0);
+    }
+  });
+
+  const totalEgresosPorMes = Array(12).fill(0);
+  conceptos.forEach(c => { egresosPorConcepto[c].forEach((v,i) => { totalEgresosPorMes[i] += v; }); });
+  otrosEgresosPorMes.forEach((v,i) => { totalEgresosPorMes[i] += v; });
+  const totalOtrosEgresos = visibleMonths.reduce((s,i) => s + otrosEgresosPorMes[i], 0);
+  const totalEgresos = visibleMonths.reduce((s,i) => s + totalEgresosPorMes[i], 0);
+
+  const flujoPorMes = totalIngresosPorMes.map((v,i) => v - totalEgresosPorMes[i]);
+  const flujoTotal  = visibleMonths.reduce((s,i) => s + flujoPorMes[i], 0);
+
+  // ── HTML ────────────────────────────────────────────────────────────────
+  let html = `<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12px">
     <thead>
       <tr style="background:var(--bg-secondary)">
         <th style="${thFirst}">Concepto</th>
         <th style="${thAcum}">Acumulado</th>
-        ${visibleMonths.map(i => `<th style="${thStyle}">${months[i]}</th>`).join('')}
+        ${visibleMonths.map(i => `<th style="${thMonth}">${months[i]} ${cfYear}</th>`).join('')}
       </tr>
-    </thead>
-    <tbody>`;
+    </thead><tbody>`;
 
   // INGRESOS
-  html += `<tr style="background:var(--bg-secondary)">
-    <td colspan="20" style="padding:6px 16px;font-size:10px;font-weight:500;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.06em">Ingresos</td>
-  </tr>`;
+  html += sectionRow('Ingresos');
 
-  // Cobranzas de Venta
   html += `<tr onmouseover="this.style.background='var(--bg-secondary)'" onmouseout="this.style.background=''">
-    <td style="padding:8px 16px;padding-left:28px;color:var(--text-secondary)">Cobranzas de Venta</td>
+    <td style="padding:6px 16px 6px 28px;color:var(--text-secondary);position:sticky;left:0;background:inherit">Cobranzas de Venta</td>
     ${tdAcum(totalCobranzas)}
     ${visibleMonths.map(i => tdNum(cobranzasPorMes[i])).join('')}
   </tr>`;
 
-  // Otros Ingresos — editable
-  html += `<tr onmouseout="Array.from(this.querySelectorAll('td:not([id])')).forEach(t=>t.style.background='')">
-    <td style="padding:8px 16px;padding-left:28px;color:var(--text-secondary);display:flex;align-items:center;gap:6px">
-      Otros Ingresos
-      <span style="font-size:10px;color:var(--info-text);background:var(--info-bg);padding:1px 6px;border-radius:10px">editable</span>
+  html += `<tr onmouseover="this.style.background='var(--bg-secondary)'" onmouseout="this.style.background=''">
+    <td style="padding:6px 16px 6px 28px;color:var(--text-secondary);position:sticky;left:0;background:inherit;display:flex;align-items:center;gap:6px">
+      Otros Ingresos <span style="font-size:10px;color:var(--info-text);background:var(--info-bg);padding:1px 6px;border-radius:10px">editable</span>
     </td>
     ${tdAcum(totalOtros)}
-    ${visibleMonths.map(i => tdEdit(otrosPorMes[i], i)).join('')}
+    ${visibleMonths.map(i => tdEdit(otrosPorMes[i], `cf-otros-${i}`, `openCfOtros(${i})`)).join('')}
   </tr>`;
 
-  // Total Ingresos — before EGRESOS
   html += `<tr style="border-top:0.5px solid var(--border-md)">
-    <td style="padding:8px 16px;font-weight:500">Total ingresos</td>
+    <td style="padding:8px 16px;font-weight:500;position:sticky;left:0;background:inherit">Total ingresos</td>
     ${tdAcum(totalIngresos, true)}
     ${visibleMonths.map(i => tdNum(totalIngresosPorMes[i], true)).join('')}
   </tr>`;
 
-  // EGRESOS — conceptos de Gastos & Pagos, solo estado=pagado, por fecha de pago
-  html += `<tr style="background:var(--bg-secondary)">
-    <td colspan="20" style="padding:6px 16px;font-size:10px;font-weight:500;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.06em">Egresos</td>
-  </tr>`;
+  // EGRESOS
+  html += sectionRow('Egresos');
 
-  const conceptos = [
-    'Sueldos y CCSS',
-    'Otros Gs. Personal',
-    'Gs. Administrativos',
-    'Alquiler Oficina',
-    'Expensas',
-    'Otros Gs. Oficina',
-    'Impuestos',
-    'Marketing Digital',
-    'Honorarios Profesionales',
-    'Mobiliario (Activo)',
-    'Equipos (Activo)',
-  ];
-
-  // Build egreso data by concepto and month — only pagado, by fechaPago
-  const egresosPorConcepto = {};
-  conceptos.forEach(c => { egresosPorConcepto[c] = Array(12).fill(0); });
-
-  state.gastos
-    .filter(g => g.estado === 'pagado' && g.fechaPago)
-    .forEach(g => {
-      const year = parseInt(g.fechaPago.substring(0,4));
-      const month = parseInt(g.fechaPago.substring(5,7)) - 1;
-      if(year === cfYear && month >= 0 && month < 12) {
-        const key = g.concepto && conceptos.includes(g.concepto) ? g.concepto : null;
-        if(key) egresosPorConcepto[key][month] += (g.monto || 0);
-      }
-    });
-
-  // Render one row per concepto
   conceptos.forEach(concepto => {
     const porMes = egresosPorConcepto[concepto];
-    const total = porMes.reduce((s,v) => s+v, 0);
+    const acum = -visibleMonths.reduce((s,i) => s + porMes[i], 0);
     html += `<tr onmouseover="this.style.background='var(--bg-secondary)'" onmouseout="this.style.background=''">
-      <td style="padding:8px 16px;padding-left:28px;color:var(--text-secondary)">${concepto}</td>
-      ${tdAcum(-visibleMonths.reduce((s,i)=>s+porMes[i],0))}
+      <td style="padding:6px 16px 6px 28px;color:var(--text-secondary);position:sticky;left:0;background:inherit">${concepto}</td>
+      ${tdAcum(acum)}
       ${visibleMonths.map(i => tdNum(-porMes[i])).join('')}
     </tr>`;
   });
 
-  // Otros Egresos — editable manual
-  if(!otrosIngresos[cfYear]) otrosIngresos[cfYear] = {};
-  const otrosEgresosPorMes = Array(12).fill(0).map((_,i) => otrosIngresos[cfYear]['e'+i] || 0);
-  const totalOtrosEgresos = otrosEgresosPorMes.reduce((s,v) => s+v, 0);
-
-  html += `<tr>
-    <td style="padding:8px 16px;padding-left:28px;color:var(--text-secondary);display:flex;align-items:center;gap:6px">
-      Otros Egresos
-      <span style="font-size:10px;color:var(--info-text);background:var(--info-bg);padding:1px 6px;border-radius:10px">editable</span>
+  html += `<tr onmouseover="this.style.background='var(--bg-secondary)'" onmouseout="this.style.background=''">
+    <td style="padding:6px 16px 6px 28px;color:var(--text-secondary);position:sticky;left:0;background:inherit;display:flex;align-items:center;gap:6px">
+      Otros Egresos <span style="font-size:10px;color:var(--info-text);background:var(--info-bg);padding:1px 6px;border-radius:10px">editable</span>
     </td>
-    ${otrosEgresosPorMes.map((v,i) => `<td id="cf-otros-e-${i}" onclick="openCfOtrosE(${i})"
-      style="text-align:right;padding:8px 12px;font-variant-numeric:tabular-nums;cursor:pointer;border-radius:4px"
-      onmouseover="this.style.background='var(--info-bg)'" onmouseout="this.style.background=''"
-      class="${v > 0 ? 'neg' : ''}" title="Click para editar">${v > 0 ? '-$'+Math.round(v).toLocaleString('es-AR') : '<span style=\'color:var(--text-tertiary);font-size:11px\'>+</span>'}</td>`).join('')}
-    ${tdNum(-totalOtrosEgresos, true)}
+    ${tdAcum(-totalOtrosEgresos)}
+    ${visibleMonths.map(i => tdEdit(otrosEgresosPorMes[i] > 0 ? -otrosEgresosPorMes[i] : 0, `cf-otros-e-${i}`, `openCfOtrosE(${i})`)).join('')}
   </tr>`;
 
-  // Total Egresos — include Otros Egresos
-  const totalEgresosPorMes = Array(12).fill(0);
-  conceptos.forEach(c => {
-    egresosPorConcepto[c].forEach((v,i) => { totalEgresosPorMes[i] += v; });
-  });
-  otrosEgresosPorMes.forEach((v,i) => { totalEgresosPorMes[i] += v; });
-  const totalEgresos = totalEgresosPorMes.reduce((s,v) => s+v, 0);
-
   html += `<tr style="border-top:0.5px solid var(--border-md)">
-    <td style="padding:8px 16px;font-weight:500">Total egresos</td>
-    ${tdAcum(-visibleMonths.reduce((s,i)=>s+totalEgresosPorMes[i],0), true)}
+    <td style="padding:8px 16px;font-weight:500;position:sticky;left:0;background:inherit">Total egresos</td>
+    ${tdAcum(-totalEgresos, true)}
     ${visibleMonths.map(i => tdNum(-totalEgresosPorMes[i], true)).join('')}
   </tr>`;
 
-  // Flujo de Fondos = Total ingresos - Total egresos
-  const flujoPorMes = totalIngresosPorMes.map((v,i) => v - totalEgresosPorMes[i]);
-  const flujoTotal = flujoPorMes.reduce((s,v) => s+v, 0);
-
-  html += `<tr style="border-top:2px solid var(--border-md);background:${flujoTotal >= 0 ? 'var(--success-bg)' : 'var(--danger-bg)'}">
-    <td style="padding:10px 16px;font-size:13px;font-weight:500">Flujo de Fondos</td>
-    <td style="text-align:right;padding:10px 14px;font-size:13px;font-weight:600;font-variant-numeric:tabular-nums;border-left:2px solid var(--border-md);background:${flujoTotal >= 0 ? 'var(--success-bg)' : 'var(--danger-bg)'}" class="${flujoTotal > 0 ? 'pos' : flujoTotal < 0 ? 'neg' : ''}">${flujoTotal !== 0 ? (flujoTotal > 0 ? '+' : '') + '$' + Math.round(flujoTotal).toLocaleString('es-AR') : '$0'}</td>
-    ${visibleMonths.map(i => `<td style="text-align:right;padding:10px 12px;font-size:12px;font-weight:500;font-variant-numeric:tabular-nums;background:${flujoPorMes[i]>=0?'var(--success-bg)':'var(--danger-bg)'}" class="${flujoPorMes[i] > 0 ? 'pos' : flujoPorMes[i] < 0 ? 'neg' : ''}">${flujoPorMes[i] !== 0 ? (flujoPorMes[i] > 0 ? '+' : '') + '$' + Math.round(flujoPorMes[i]).toLocaleString('es-AR') : '$0'}</td>`).join('')}
+  // FLUJO DE FONDOS
+  html += `<tr style="border-top:2px solid var(--border-md)">
+    <td style="padding:10px 16px;font-size:13px;font-weight:600;position:sticky;left:0;background:${resBg(flujoTotal)}">Flujo de Fondos</td>
+    <td style="text-align:right;padding:10px 14px;font-size:13px;font-weight:600;font-variant-numeric:tabular-nums;border-left:2px solid var(--border-md);background:${resBg(flujoTotal)}" class="${cls(flujoTotal)}">${fmtSigned(flujoTotal)}</td>
+    ${visibleMonths.map(i => `<td style="text-align:right;padding:10px 14px;font-size:12px;font-weight:600;font-variant-numeric:tabular-nums;border-left:1px solid var(--border-md);background:${resBg(flujoPorMes[i])}" class="${cls(flujoPorMes[i])}">${fmtSigned(flujoPorMes[i])}</td>`).join('')}
   </tr>`;
 
-  html += `</tbody></table>`;
+  html += `</tbody></table></div>`;
   wrap.innerHTML = html;
 
-  // Render chart
   renderCfChart();
 }
 
