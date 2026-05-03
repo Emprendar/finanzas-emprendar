@@ -124,6 +124,7 @@
   .cfd-item:hover{background:var(--bg-secondary)}
   .cfd-item.cfd-sel{background:var(--bg-tertiary);font-weight:600}
   .cfd-empty{padding:8px 12px;font-size:12px;color:var(--text-tertiary);font-style:italic}
+  .cfd-chk{margin-right:5px;font-size:13px;line-height:1}
 </style>
 </head>
 <body>
@@ -407,7 +408,7 @@
     <th style="padding:4px 8px"><div id="cfd-cbf-monto" class="cfd-wrap" data-table="cobros" data-field="monto"><button class="cfd-trigger" onclick="cfdOpen('cbf-monto')"><span class="cfd-trigger-text">Filtrar...</span><span class="cfd-arrow">▾</span></button><div class="cfd-drop"><div class="cfd-search-wrap"><input type="text" placeholder="Buscar..." oninput="cfdRebuild('cbf-monto')"></div><div class="cfd-list"></div></div></div></th>
     <th style="padding:4px 8px"></th>
     <th style="padding:4px 8px"><div id="cfd-cbf-estado" class="cfd-wrap" data-table="cobros" data-field="estado"><button class="cfd-trigger" onclick="cfdOpen('cbf-estado')"><span class="cfd-trigger-text">Filtrar...</span><span class="cfd-arrow">▾</span></button><div class="cfd-drop"><div class="cfd-search-wrap"><input type="text" placeholder="Buscar..." oninput="cfdRebuild('cbf-estado')"></div><div class="cfd-list"></div></div></div></th>
-    <th style="padding:4px 8px"></th>
+    <th style="padding:4px 8px"><div id="cfd-cbf-fechaCobro" class="cfd-wrap" data-table="cobros" data-field="fechaCobro"><button class="cfd-trigger" onclick="cfdOpen('cbf-fechaCobro')"><span class="cfd-trigger-text">Filtrar...</span><span class="cfd-arrow">▾</span></button><div class="cfd-drop"><div class="cfd-search-wrap"><input type="text" placeholder="Buscar..." oninput="cfdRebuild('cbf-fechaCobro')"></div><div class="cfd-list"></div></div></div></th>
     <th style="padding:4px 8px"><div id="cfd-cbf-notas" class="cfd-wrap" data-table="cobros" data-field="notas"><button class="cfd-trigger" onclick="cfdOpen('cbf-notas')"><span class="cfd-trigger-text">Filtrar...</span><span class="cfd-arrow">▾</span></button><div class="cfd-drop"><div class="cfd-search-wrap"><input type="text" placeholder="Buscar..." oninput="cfdRebuild('cbf-notas')"></div><div class="cfd-list"></div></div></div></th>
     <th></th><th></th>
   </tr>
@@ -557,7 +558,7 @@
     <th style="padding:4px 8px"><div id="cfd-gsf-monto" class="cfd-wrap" data-table="gastos" data-field="monto"><button class="cfd-trigger" onclick="cfdOpen('gsf-monto')"><span class="cfd-trigger-text">Filtrar...</span><span class="cfd-arrow">▾</span></button><div class="cfd-drop"><div class="cfd-search-wrap"><input type="text" placeholder="Buscar..." oninput="cfdRebuild('gsf-monto')"></div><div class="cfd-list"></div></div></div></th>
     <th style="padding:4px 8px"></th>
     <th style="padding:4px 8px"><div id="cfd-gsf-estado" class="cfd-wrap" data-table="gastos" data-field="estado"><button class="cfd-trigger" onclick="cfdOpen('gsf-estado')"><span class="cfd-trigger-text">Filtrar...</span><span class="cfd-arrow">▾</span></button><div class="cfd-drop"><div class="cfd-search-wrap"><input type="text" placeholder="Buscar..." oninput="cfdRebuild('gsf-estado')"></div><div class="cfd-list"></div></div></div></th>
-    <th style="padding:4px 8px"></th>
+    <th style="padding:4px 8px"><div id="cfd-gsf-fechaPago" class="cfd-wrap" data-table="gastos" data-field="fechaPago"><button class="cfd-trigger" onclick="cfdOpen('gsf-fechaPago')"><span class="cfd-trigger-text">Filtrar...</span><span class="cfd-arrow">▾</span></button><div class="cfd-drop"><div class="cfd-search-wrap"><input type="text" placeholder="Buscar..." oninput="cfdRebuild('gsf-fechaPago')"></div><div class="cfd-list"></div></div></div></th>
     <th></th><th></th>
   </tr>
 </thead><tbody id="gastos-table"></tbody></table>
@@ -2288,9 +2289,11 @@ function saveBsDesc(section, i, value) {
   renderBalance();
 }
 
-// ─── Column Filter Dropdowns ─────────────────────────────────────
-const cfdState = {};
-function cfdVal(id) { return cfdState[id] || ''; }
+// ─── Column Filter Dropdowns (multi-select) ──────────────────────
+const cfdState = {}; // { id: Set<string> }
+
+function cfdVal(id) { return cfdState[id] || new Set(); }
+function cfdHas(id) { const s = cfdState[id]; return s && s.size > 0; }
 
 function cfdOpen(id) {
   const wrap = document.getElementById('cfd-' + id);
@@ -2315,24 +2318,44 @@ function cfdRebuild(id) {
   const q = (si?.value || '').toLowerCase();
   const data = table === 'cobros' ? state.cobros : state.gastos;
   let vals = [...new Set(data.map(r => r[field]).filter(v => v !== null && v !== undefined && v !== ''))].sort((a,b) => String(a).localeCompare(String(b), 'es'));
-  if (q) vals = vals.filter(v => String(v).toLowerCase().startsWith(q));
-  const cur = cfdState[id] || '';
+  if (q) vals = vals.filter(v => String(v).toLowerCase().includes(q));
+  const sel = cfdState[id] || new Set();
+  const allSel = sel.size === 0;
   const list = wrap.querySelector('.cfd-list');
-  list.innerHTML = `<div class="cfd-item${!cur ? ' cfd-sel' : ''}" onclick="cfdPick('${id}','')">Todos</div>`
-    + (vals.length ? vals.map(v => `<div class="cfd-item${String(v)===cur ? ' cfd-sel' : ''}" onclick="cfdPick('${id}',${JSON.stringify(String(v))})">${v}</div>`).join('') : '<div class="cfd-empty">Sin resultados</div>');
+  list.innerHTML =
+    `<div class="cfd-item${allSel ? ' cfd-sel' : ''}" onclick="cfdPickAll('${id}')"><span class="cfd-chk">${allSel ? '☑' : '☐'}</span> Todos</div>` +
+    (vals.length ? vals.map(v => {
+      const vs = String(v); const chk = sel.has(vs);
+      return `<div class="cfd-item${chk ? ' cfd-sel' : ''}" onclick="cfdPick('${id}',${JSON.stringify(vs)})"><span class="cfd-chk">${chk ? '☑' : '☐'}</span> ${v}</div>`;
+    }).join('') : '<div class="cfd-empty">Sin resultados</div>');
 }
 
 function cfdPick(id, value) {
-  cfdState[id] = value;
+  if (!cfdState[id]) cfdState[id] = new Set();
+  const s = cfdState[id];
+  if (s.has(value)) s.delete(value); else s.add(value);
+  cfdUpdateTrigger(id);
+  cfdRebuild(id);
+  const wrap = document.getElementById('cfd-' + id);
+  if (wrap?.dataset.table === 'cobros') renderCobros(); else renderGastos();
+}
+
+function cfdPickAll(id) {
+  cfdState[id] = new Set();
+  cfdUpdateTrigger(id);
+  cfdRebuild(id);
+  const wrap = document.getElementById('cfd-' + id);
+  if (wrap?.dataset.table === 'cobros') renderCobros(); else renderGastos();
+}
+
+function cfdUpdateTrigger(id) {
   const wrap = document.getElementById('cfd-' + id);
   if (!wrap) return;
   const t = wrap.querySelector('.cfd-trigger-text');
-  t.textContent = value || 'Filtrar...';
-  t.classList.toggle('cfd-active', !!value);
-  wrap.querySelector('.cfd-drop').classList.remove('open');
-  const table = wrap.dataset.table;
-  if (table === 'cobros') renderCobros();
-  else renderGastos();
+  const s = cfdState[id];
+  if (!s || s.size === 0) { t.textContent = 'Filtrar...'; t.classList.remove('cfd-active'); }
+  else if (s.size === 1) { t.textContent = [...s][0]; t.classList.add('cfd-active'); }
+  else { t.textContent = s.size + ' seleccionados'; t.classList.add('cfd-active'); }
 }
 
 document.addEventListener('click', e => {
@@ -2587,18 +2610,20 @@ function getFilteredCobros() {
   let cobros = selectedCbPeriods.size > 0
     ? state.cobros.filter(c => c.fecha && selectedCbPeriods.has(c.fecha.substring(0,7)))
     : state.cobros;
-  const cbfFecha   = cfdVal('cbf-fecha');
-  const cbfDesc    = cfdVal('cbf-desc');
-  const cbfClient  = cfdVal('cbf-client');
-  const cbfMonto   = cfdVal('cbf-monto');
-  const cbfEstado  = cfdVal('cbf-estado');
-  const cbfNotas   = cfdVal('cbf-notas');
-  if(cbfFecha)   cobros = cobros.filter(c => String(c.fecha||'') === cbfFecha);
-  if(cbfDesc)    cobros = cobros.filter(c => String(c.desc||'') === cbfDesc);
-  if(cbfClient)  cobros = cobros.filter(c => String(c.client||'') === cbfClient);
-  if(cbfMonto)   cobros = cobros.filter(c => String(c.monto||'') === cbfMonto);
-  if(cbfEstado)  cobros = cobros.filter(c => c.estado === cbfEstado);
-  if(cbfNotas)   cobros = cobros.filter(c => String(c.notas||'') === cbfNotas);
+  const cbfFecha      = cfdVal('cbf-fecha');
+  const cbfDesc       = cfdVal('cbf-desc');
+  const cbfClient     = cfdVal('cbf-client');
+  const cbfMonto      = cfdVal('cbf-monto');
+  const cbfEstado     = cfdVal('cbf-estado');
+  const cbfNotas      = cfdVal('cbf-notas');
+  const cbfFechaCobro = cfdVal('cbf-fechaCobro');
+  if(cbfFecha.size)      cobros = cobros.filter(c => cbfFecha.has(String(c.fecha||'')));
+  if(cbfDesc.size)       cobros = cobros.filter(c => cbfDesc.has(String(c.desc||'')));
+  if(cbfClient.size)     cobros = cobros.filter(c => cbfClient.has(String(c.client||'')));
+  if(cbfMonto.size)      cobros = cobros.filter(c => cbfMonto.has(String(c.monto||'')));
+  if(cbfEstado.size)     cobros = cobros.filter(c => cbfEstado.has(c.estado));
+  if(cbfNotas.size)      cobros = cobros.filter(c => cbfNotas.has(String(c.notas||'')));
+  if(cbfFechaCobro.size) cobros = cobros.filter(c => cbfFechaCobro.has(String(c.fechaCobro||'')));
   return cobros;
 }
 
@@ -2871,18 +2896,20 @@ function getFilteredGastos() {
   let gastos = selectedGsPeriods.size > 0
     ? state.gastos.filter(g => g.fecha && selectedGsPeriods.has(g.fecha.substring(0,7)))
     : state.gastos;
-  const gsfFecha   = cfdVal('gsf-fecha');
-  const gsfDesc    = cfdVal('gsf-desc');
-  const gsfConc    = cfdVal('gsf-concepto');
-  const gsfRec     = cfdVal('gsf-rec');
-  const gsfMonto   = cfdVal('gsf-monto');
-  const gsfEstado  = cfdVal('gsf-estado');
-  if(gsfFecha)   gastos = gastos.filter(g => String(g.fecha||'') === gsfFecha);
-  if(gsfDesc)    gastos = gastos.filter(g => String(g.desc||'') === gsfDesc);
-  if(gsfConc)    gastos = gastos.filter(g => String(g.concepto||'') === gsfConc);
-  if(gsfRec)     gastos = gastos.filter(g => g.rec === gsfRec);
-  if(gsfMonto)   gastos = gastos.filter(g => String(g.monto||'') === gsfMonto);
-  if(gsfEstado)  gastos = gastos.filter(g => g.estado === gsfEstado);
+  const gsfFecha     = cfdVal('gsf-fecha');
+  const gsfDesc      = cfdVal('gsf-desc');
+  const gsfConc      = cfdVal('gsf-concepto');
+  const gsfRec       = cfdVal('gsf-rec');
+  const gsfMonto     = cfdVal('gsf-monto');
+  const gsfEstado    = cfdVal('gsf-estado');
+  const gsfFechaPago = cfdVal('gsf-fechaPago');
+  if(gsfFecha.size)     gastos = gastos.filter(g => gsfFecha.has(String(g.fecha||'')));
+  if(gsfDesc.size)      gastos = gastos.filter(g => gsfDesc.has(String(g.desc||'')));
+  if(gsfConc.size)      gastos = gastos.filter(g => gsfConc.has(String(g.concepto||'')));
+  if(gsfRec.size)       gastos = gastos.filter(g => gsfRec.has(g.rec));
+  if(gsfMonto.size)     gastos = gastos.filter(g => gsfMonto.has(String(g.monto||'')));
+  if(gsfEstado.size)    gastos = gastos.filter(g => gsfEstado.has(g.estado));
+  if(gsfFechaPago.size) gastos = gastos.filter(g => gsfFechaPago.has(String(g.fechaPago||'')));
   return gastos;
 }
 
