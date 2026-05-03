@@ -652,34 +652,30 @@
     <!-- CASHFLOW -->
     <div id="page-flujo" class="content" style="display:none">
 
-      <!-- Filtros -->
-      <div style="display:flex;align-items:center;gap:16px;margin-bottom:20px;flex-wrap:wrap">
-        <div>
-          <div style="font-size:11px;color:var(--text-tertiary);margin-bottom:4px;text-transform:uppercase;letter-spacing:0.06em">Año</div>
-          <div style="display:flex;gap:6px" id="cf-year-tabs"></div>
-        </div>
-
-        <!-- Filtro meses -->
-        <div>
-          <div style="font-size:11px;color:var(--text-tertiary);margin-bottom:4px;text-transform:uppercase;letter-spacing:0.06em">Meses a visualizar</div>
-          <div style="display:flex;align-items:center;gap:6px">
-            <div style="position:relative" id="cf-month-wrap">
-              <button id="cf-month-btn" onclick="toggleCfMonthDropdown()"
-                style="display:flex;align-items:center;gap:6px;padding:5px 10px;font-size:12px;border-radius:var(--radius-md);cursor:pointer;border:0.5px solid var(--border-md);background:var(--bg-primary);color:var(--text-primary);min-width:160px;justify-content:space-between">
-                <span id="cf-month-label">Todos los meses</span>
-                <span style="font-size:10px;color:var(--text-tertiary)">▼</span>
-              </button>
-              <div id="cf-month-list" style="display:none;position:absolute;top:calc(100% + 4px);left:0;min-width:180px;max-height:260px;overflow-y:auto;background:var(--bg-primary);border:0.5px solid var(--border-md);border-radius:var(--radius-lg);box-shadow:0 4px 16px rgba(0,0,0,0.12);z-index:100;padding:6px 0"></div>
-            </div>
-            <button onclick="clearCfMonths()" style="padding:5px 10px;font-size:12px;border-radius:var(--radius-md);cursor:pointer;border:0.5px solid var(--border-md);background:var(--bg-primary);color:var(--text-tertiary)">Limpiar</button>
-          </div>
-        </div>
-
-        <div style="margin-left:auto;display:flex;align-items:center;gap:10px">
-          <span style="font-size:12px;color:var(--text-tertiary)">Solo se incluyen movimientos con estado <strong style="color:var(--text-secondary)">Cobrado</strong></span>
+      <!-- Header -->
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:10px">
+        <div style="font-size:13px;color:var(--text-secondary)">Flujo de Caja — seleccioná uno o varios períodos para comparar</div>
+        <div style="display:flex;gap:8px">
           <button onclick="exportXLS('all')" class="btn-secondary" style="font-size:12px">⬇ XLS</button>
           <button onclick="exportPDF('cashflow')" class="btn-secondary" style="font-size:12px">⬇ PDF</button>
         </div>
+      </div>
+
+      <!-- Filtros tipo P&L -->
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;flex-wrap:wrap">
+        <div style="display:flex;gap:4px" id="cf-mode-tabs">
+          <button onclick="setCfMode('mes',this)" style="padding:5px 14px;font-size:12px;border-radius:var(--radius-md);cursor:pointer;border:0.5px solid var(--border-md);background:var(--text-primary);color:var(--bg-primary);font-weight:500">Mes/Año</button>
+          <button onclick="setCfMode('anio',this)" style="padding:5px 14px;font-size:12px;border-radius:var(--radius-md);cursor:pointer;border:0.5px solid var(--border-md);background:var(--bg-primary);color:var(--text-secondary)">Solo Año</button>
+        </div>
+        <div style="position:relative" id="cf-dropdown-wrap">
+          <button id="cf-dropdown-btn" onclick="toggleCfDropdown()" style="display:flex;align-items:center;gap:8px;padding:5px 12px;font-size:12px;border-radius:var(--radius-md);cursor:pointer;border:0.5px solid var(--border-md);background:var(--bg-primary);color:var(--text-primary);min-width:180px;justify-content:space-between">
+            <span id="cf-dropdown-label">Seleccioná períodos</span>
+            <span style="font-size:10px;color:var(--text-tertiary)">▼</span>
+          </button>
+          <div id="cf-dropdown-list" style="display:none;position:absolute;top:calc(100% + 4px);left:0;min-width:220px;max-height:280px;overflow-y:auto;background:var(--bg-primary);border:0.5px solid var(--border-md);border-radius:var(--radius-lg);box-shadow:0 4px 16px rgba(0,0,0,0.12);z-index:100;padding:6px 0"></div>
+        </div>
+        <button onclick="setCfYtd()" style="padding:5px 12px;font-size:12px;border-radius:var(--radius-md);cursor:pointer;border:0.5px solid var(--border-md);background:var(--bg-primary);color:var(--text-secondary)">YTD</button>
+        <button onclick="clearCfSelection()" style="padding:5px 12px;font-size:12px;border-radius:var(--radius-md);cursor:pointer;border:0.5px solid var(--border-md);background:var(--bg-primary);color:var(--text-tertiary)">Limpiar</button>
       </div>
 
       <!-- Tabla cashflow -->
@@ -3254,277 +3250,341 @@ function renderProyectos() {
 }
 
 // ─── Cashflow ─────────────────────────────────────────────────────
-let cfYear = new Date().getFullYear();
-
-// otrosIngresos[year][month] = monto manual
+// otrosIngresos[year][monthIdx|'e'+monthIdx] = monto manual
 const otrosIngresos = {};
+function getCfOtros(year, month) { return (otrosIngresos[year] && otrosIngresos[year][month]) || 0; }
 
-function getCfOtros(year, month) {
-  return (otrosIngresos[year] && otrosIngresos[year][month]) || 0;
+// Period filter (identical structure to P&L)
+let cfMode = 'mes';
+let cfSelected = new Set();
+let cfDropdownOpen = false;
+const CF_MONTHS = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+
+function cfPeriodLabel(key) {
+  if(cfMode === 'anio') return key;
+  const [y, m] = key.split('-');
+  return CF_MONTHS[parseInt(m)-1] + ' ' + y;
 }
 
 function renderFlujo() {
-  buildCfYearTabs();
+  if(cfSelected.size === 0) {
+    const now = new Date();
+    for(let m = 0; m <= now.getMonth(); m++)
+      cfSelected.add(now.getFullYear() + '-' + String(m+1).padStart(2,'0'));
+  }
+  buildCfDropdown();
   renderCfTable();
   renderCfPeriodSelector();
   renderCfChart();
 }
 
-function buildCfYearTabs() {
-  const container = document.getElementById('cf-year-tabs');
-  if(!container) return;
-
-  const years = new Set();
-  const currentYear = new Date().getFullYear();
-  years.add(currentYear);
-  years.add(currentYear - 1);
-  state.cobros.forEach(c => {
-    const dateRef = c.fechaCobro || c.fecha;
-    if(dateRef) years.add(parseInt(dateRef.substring(0,4)));
+function setCfMode(mode, el) {
+  cfMode = mode;
+  cfSelected.clear();
+  document.querySelectorAll('#cf-mode-tabs button').forEach(b => {
+    b.style.background = 'var(--bg-primary)'; b.style.color = 'var(--text-secondary)'; b.style.fontWeight = '400';
   });
-
-  const sorted = [...years].sort((a,b) => b - a);
-  container.innerHTML = sorted.map(y =>
-    `<div onclick="setCfYear(${y})"
-      style="padding:6px 14px;font-size:12px;border-radius:var(--radius-md);cursor:pointer;border:0.5px solid var(--border-md);
-      background:${y===cfYear?'var(--text-primary)':'var(--bg-primary)'};
-      color:${y===cfYear?'var(--bg-primary)':'var(--text-secondary)'};
-      font-weight:${y===cfYear?'500':'400'};transition:all 0.15s">${y}</div>`
-  ).join('');
+  el.style.background = 'var(--text-primary)'; el.style.color = 'var(--bg-primary)'; el.style.fontWeight = '500';
+  buildCfDropdown(); renderCfTable();
 }
 
-function setCfYear(year) {
-  cfYear = year;
-  buildCfYearTabs();
-  renderCfTable();
+function setCfYtd() {
+  cfMode = 'mes'; cfSelected.clear();
+  const now = new Date();
+  for(let m = 0; m <= now.getMonth(); m++)
+    cfSelected.add(now.getFullYear() + '-' + String(m+1).padStart(2,'0'));
+  document.querySelectorAll('#cf-mode-tabs button').forEach((b,i) => {
+    b.style.background = i===0 ? 'var(--text-primary)' : 'var(--bg-primary)';
+    b.style.color = i===0 ? 'var(--bg-primary)' : 'var(--text-secondary)';
+    b.style.fontWeight = i===0 ? '500' : '400';
+  });
+  buildCfDropdown(); renderCfTable();
 }
 
-function openCfOtros(month) {
-  const current = getCfOtros(cfYear, month);
-  const cell = document.getElementById('cf-otros-' + month);
-  if(!cell) return;
-  cell.innerHTML = `<input type="number" value="${current||''}" placeholder="0"
-    style="width:80px;font-size:12px;padding:3px 6px;border:1px solid var(--info-text);border-radius:4px;text-align:right;background:var(--bg-primary);color:var(--text-primary)"
-    onblur="saveCfOtros(${month},this.value)"
-    onkeydown="if(event.key==='Enter')this.blur();if(event.key==='Escape'){this.value='${current}';this.blur();}"
-    autofocus>`;
-  cell.querySelector('input').select();
+function clearCfSelection() { cfSelected.clear(); buildCfDropdown(); renderCfTable(); }
+
+function toggleCfPeriod(key) {
+  if(cfSelected.has(key)) cfSelected.delete(key); else cfSelected.add(key);
+  buildCfDropdown(); renderCfTable();
 }
 
-function saveCfOtros(month, value) {
-  const val = parseFloat(value) || 0;
-  if(!otrosIngresos[cfYear]) otrosIngresos[cfYear] = {};
-  otrosIngresos[cfYear][month] = val;
-  renderCfTable();
-}
-
-function openCfOtrosE(month) {
-  const current = (otrosIngresos[cfYear] && otrosIngresos[cfYear]['e'+month]) || 0;
-  const cell = document.getElementById('cf-otros-e-' + month);
-  if(!cell) return;
-  cell.innerHTML = `<input type="number" value="${current||''}" placeholder="0"
-    style="width:80px;font-size:12px;padding:3px 6px;border:1px solid var(--info-text);border-radius:4px;text-align:right;background:var(--bg-primary);color:var(--text-primary)"
-    onblur="saveCfOtrosE(${month},this.value)"
-    onkeydown="if(event.key==='Enter')this.blur();if(event.key==='Escape'){this.value='${current}';this.blur();}"
-    autofocus>`;
-  cell.querySelector('input').select();
-}
-
-function saveCfOtrosE(month, value) {
-  const val = parseFloat(value) || 0;
-  if(!otrosIngresos[cfYear]) otrosIngresos[cfYear] = {};
-  otrosIngresos[cfYear]['e'+month] = val;
-  renderCfTable();
-}
-
-// ─── Cashflow month filter ────────────────────────────────────────
-let selectedCfMonths = new Set(); // empty = all months
-let cfMonthDropdownOpen = false;
-const CF_MONTH_NAMES = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
-
-function toggleCfMonthDropdown() {
-  cfMonthDropdownOpen = !cfMonthDropdownOpen;
-  const list = document.getElementById('cf-month-list');
+function toggleCfDropdown() {
+  cfDropdownOpen = !cfDropdownOpen;
+  const list = document.getElementById('cf-dropdown-list');
   if(!list) return;
-  if(cfMonthDropdownOpen) { buildCfMonthList(); list.style.display = 'block'; }
+  if(cfDropdownOpen) { buildCfDropdownList(); list.style.display = 'block'; }
   else list.style.display = 'none';
 }
 
-function buildCfMonthList() {
-  const list = document.getElementById('cf-month-list');
+document.addEventListener('click', e => {
+  if(!e.target.closest('#cf-dropdown-wrap')) {
+    cfDropdownOpen = false;
+    const l = document.getElementById('cf-dropdown-list');
+    if(l) l.style.display = 'none';
+  }
+});
+
+function buildCfDropdown() {
+  const lbl = document.getElementById('cf-dropdown-label');
+  if(lbl) {
+    if(cfSelected.size === 0) lbl.textContent = 'Seleccioná períodos';
+    else if(cfSelected.size === 1) lbl.textContent = cfPeriodLabel([...cfSelected][0]);
+    else lbl.textContent = cfSelected.size + ' períodos seleccionados';
+  }
+  if(cfDropdownOpen) buildCfDropdownList();
+}
+
+function buildCfDropdownList() {
+  const list = document.getElementById('cf-dropdown-list');
   if(!list) return;
-  list.innerHTML = CF_MONTH_NAMES.map((m, i) => {
-    const sel = selectedCfMonths.has(i);
-    return `<div onclick="toggleCfMonth(${i})"
+  const now = new Date();
+  const items = [];
+  if(cfMode === 'mes') {
+    for(let i = 0; i < 24; i++) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const key = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0');
+      items.push({ key, label: CF_MONTHS[d.getMonth()] + ' ' + d.getFullYear() });
+    }
+  } else {
+    for(let i = 0; i < 5; i++) items.push({ key: String(now.getFullYear()-i), label: String(now.getFullYear()-i) });
+  }
+  list.innerHTML = items.map(({ key, label }) => {
+    const sel = cfSelected.has(key);
+    return `<div onclick="toggleCfPeriod('${key}')"
       style="display:flex;align-items:center;gap:10px;padding:8px 14px;cursor:pointer;font-size:12px;
       background:${sel?'var(--info-bg)':'transparent'};color:${sel?'var(--info-text)':'var(--text-primary)'}"
       onmouseover="if(!${sel})this.style.background='var(--bg-secondary)'"
       onmouseout="if(!${sel})this.style.background='transparent'">
       <span style="width:14px;height:14px;border-radius:3px;border:1.5px solid ${sel?'var(--info-text)':'var(--border-md)'};
         background:${sel?'var(--info-text)':'transparent'};display:inline-flex;align-items:center;justify-content:center;flex-shrink:0">
-        ${sel?'<span style="color:white;font-size:10px;font-weight:700">✓</span>':''}
-      </span>${m}
+        ${sel?'<span style="color:white;font-size:10px;font-weight:700">&#10003;</span>':''}
+      </span>${label}
     </div>`;
   }).join('');
-  updateCfMonthLabel();
 }
 
-function toggleCfMonth(i) {
-  if(selectedCfMonths.has(i)) selectedCfMonths.delete(i);
-  else selectedCfMonths.add(i);
-  buildCfMonthList();
-  updateCfMonthLabel();
+function openCfOtros(year, month) {
+  const current = getCfOtros(year, month);
+  const cell = document.getElementById(`cf-otros-${year}-${month}`);
+  if(!cell) return;
+  cell.innerHTML = `<input type="number" value="${current||''}" placeholder="0"
+    style="width:80px;font-size:12px;padding:3px 6px;border:1px solid var(--info-text);border-radius:4px;text-align:right;background:var(--bg-primary);color:var(--text-primary)"
+    onblur="saveCfOtros(${year},${month},this.value)"
+    onkeydown="if(event.key==='Enter')this.blur();if(event.key==='Escape'){this.value='${current}';this.blur();}"
+    autofocus>`;
+  cell.querySelector('input').select();
+}
+
+function saveCfOtros(year, month, value) {
+  const val = parseFloat(value) || 0;
+  if(!otrosIngresos[year]) otrosIngresos[year] = {};
+  otrosIngresos[year][month] = val;
   renderCfTable();
 }
 
-function clearCfMonths() {
-  selectedCfMonths.clear();
-  updateCfMonthLabel();
+// Derives the "active year" from cfSelected for the chart & export functions
+function getCfYear() {
+  if(cfSelected.size > 0) return parseInt([...cfSelected].sort().reverse()[0].substring(0,4));
+  return new Date().getFullYear();
+}
+
+function openCfOtrosE(year, month) {
+  const current = (otrosIngresos[year] && otrosIngresos[year]['e'+month]) || 0;
+  const cell = document.getElementById(`cf-otros-e-${year}-${month}`);
+  if(!cell) return;
+  cell.innerHTML = `<input type="number" value="${current||''}" placeholder="0"
+    style="width:80px;font-size:12px;padding:3px 6px;border:1px solid var(--info-text);border-radius:4px;text-align:right;background:var(--bg-primary);color:var(--text-primary)"
+    onblur="saveCfOtrosE(${year},${month},this.value)"
+    onkeydown="if(event.key==='Enter')this.blur();if(event.key==='Escape'){this.value='${current}';this.blur();}"
+    autofocus>`;
+  cell.querySelector('input').select();
+}
+
+function saveCfOtros(year, month, value) {
+  const val = parseFloat(value) || 0;
+  if(!otrosIngresos[year]) otrosIngresos[year] = {};
+  otrosIngresos[year][month] = val;
   renderCfTable();
 }
 
-function updateCfMonthLabel() {
-  const lbl = document.getElementById('cf-month-label');
-  if(!lbl) return;
-  if(selectedCfMonths.size === 0) lbl.textContent = 'Todos los meses';
-  else if(selectedCfMonths.size === 1) lbl.textContent = CF_MONTH_NAMES[[...selectedCfMonths][0]];
-  else lbl.textContent = selectedCfMonths.size + ' meses';
+function saveCfOtrosE(year, month, value) {
+  const val = parseFloat(value) || 0;
+  if(!otrosIngresos[year]) otrosIngresos[year] = {};
+  otrosIngresos[year]['e'+month] = val;
+  renderCfTable();
 }
 
-document.addEventListener('click', e => {
-  if(!e.target.closest('#cf-month-wrap')) {
-    cfMonthDropdownOpen = false;
-    const l = document.getElementById('cf-month-list');
-    if(l) l.style.display = 'none';
+// ─── Cashflow drill-down ──────────────────────────────────────────
+function cfDrillDown(type, periodsStr, concepto) {
+  const periods = periodsStr.split(',');
+  // Expand year keys to YYYY-MM for the period selectors
+  const expandedPeriods = [];
+  periods.forEach(p => {
+    if(p.length === 4) { for(let m=1;m<=12;m++) expandedPeriods.push(p+'-'+String(m).padStart(2,'0')); }
+    else expandedPeriods.push(p);
+  });
+
+  if(type === 'cobros') {
+    selectedCbPeriods.clear();
+    expandedPeriods.forEach(p => selectedCbPeriods.add(p));
+    ['cbf-fecha','cbf-desc','cbf-client','cbf-monto','cbf-notas','cbf-fechaCobro'].forEach(id => { cfdState[id] = new Set(); cfdUpdateTrigger(id); });
+    cfdState['cbf-estado'] = new Set(['cobrado']); cfdUpdateTrigger('cbf-estado');
+    buildPeriodDropdownGeneric('cb-period-list', selectedCbPeriods, 'cb-period-label');
+    showPage('cobros');
+  } else {
+    // For gastos use exact fechaPago values for accuracy
+    const relevantFechas = new Set();
+    state.gastos.filter(g => {
+      if(g.estado !== 'pagado' || !g.fechaPago) return false;
+      if(concepto && g.concepto !== concepto) return false;
+      return periods.some(p => g.fechaPago.startsWith(p));
+    }).forEach(g => relevantFechas.add(g.fechaPago));
+
+    selectedGsPeriods.clear();
+    ['gsf-fecha','gsf-desc','gsf-rec','gsf-monto','gsf-notas'].forEach(id => { cfdState[id] = new Set(); cfdUpdateTrigger(id); });
+    cfdState['gsf-estado'] = new Set(['pagado']); cfdUpdateTrigger('gsf-estado');
+    cfdState['gsf-concepto'] = concepto ? new Set([concepto]) : new Set(); cfdUpdateTrigger('gsf-concepto');
+    cfdState['gsf-fechaPago'] = relevantFechas; cfdUpdateTrigger('gsf-fechaPago');
+    buildPeriodDropdownGeneric('gs-period-list', selectedGsPeriods, 'gs-period-label');
+    showPage('gastos');
   }
-});
+}
 
 function renderCfTable() {
   const wrap = document.getElementById('cf-table-wrap');
   if(!wrap) return;
 
-  const months = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+  const periods = [...cfSelected].sort();
 
-  const visibleMonths = selectedCfMonths.size > 0
-    ? [...selectedCfMonths].sort((a,b) => a-b)
-    : [...Array(12).keys()];
+  if(periods.length === 0) {
+    wrap.innerHTML = `<div style="text-align:center;padding:48px 24px;color:var(--text-tertiary);font-size:13px">Seleccioná uno o más períodos arriba para ver el Cashflow</div>`;
+    renderCfChart(); return;
+  }
 
   const fmt$ = n => n === 0 ? '$0' : (n > 0 ? '$' : '-$') + Math.round(Math.abs(n)).toLocaleString('es-AR');
   const fmtSigned = n => n === 0 ? '$0' : (n > 0 ? '+$' : '-$') + Math.round(Math.abs(n)).toLocaleString('es-AR');
   const cls = n => n > 0 ? 'pos' : n < 0 ? 'neg' : '';
   const resBg = n => n > 0 ? 'var(--success-bg)' : n < 0 ? 'var(--danger-bg)' : 'var(--bg-secondary)';
+  const showTotal = periods.length > 1;
 
-  // ── Estilos iguales al P&L ──────────────────────────────────────────────
-  const thFirst = 'padding:8px 16px;text-align:left;font-size:11px;font-weight:500;color:var(--text-secondary);border-bottom:0.5px solid var(--border-md);min-width:200px;position:sticky;left:0;background:var(--bg-secondary)';
-  const thAcum  = 'padding:8px 14px;text-align:right;font-size:11px;font-weight:600;color:var(--text-primary);border-bottom:0.5px solid var(--border-md);white-space:nowrap;border-left:2px solid var(--border-md);background:var(--bg-secondary);min-width:130px';
-  const thMonth = 'padding:8px 14px;text-align:right;font-size:11px;font-weight:600;color:var(--text-primary);border-bottom:0.5px solid var(--border-md);border-left:1px solid var(--border-md);min-width:110px;white-space:nowrap';
+  // For each period key, get the year+month list it covers
+  const getMonths = key => cfMode === 'anio'
+    ? Array(12).fill(0).map((_,i) => ({ year: parseInt(key), month: i }))
+    : [{ year: parseInt(key.substring(0,4)), month: parseInt(key.substring(5,7))-1 }];
 
-  const tdNum = (v, bold=false) =>
-    `<td style="text-align:right;padding:${bold?'8':'6'}px 14px;${bold?'font-weight:500;':''}font-variant-numeric:tabular-nums;border-left:1px solid var(--border-md)" class="${cls(v)}">${fmt$(v)}</td>`;
-
-  const tdAcum = (v, bold=false) =>
-    `<td style="text-align:right;padding:${bold?'8':'6'}px 14px;${bold?'font-weight:600;':''}font-variant-numeric:tabular-nums;border-left:2px solid var(--border-md);background:var(--bg-secondary)" class="${cls(v)}">${fmt$(v)}</td>`;
-
-  const tdEdit = (v, id, onclick) =>
-    `<td id="${id}" onclick="${onclick}"
-      style="text-align:right;padding:6px 14px;font-variant-numeric:tabular-nums;cursor:pointer;border-left:1px solid var(--border-md)"
-      onmouseover="this.style.background='var(--info-bg)'" onmouseout="this.style.background=''"
-      class="${cls(v)}" title="Click para editar">${v !== 0 ? fmt$(v) : '<span style="color:var(--text-tertiary);font-size:11px">+</span>'}</td>`;
-
-  const sectionRow = label => `<tr style="background:var(--bg-secondary)">
-    <td style="padding:6px 16px;font-size:10px;font-weight:500;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.06em;position:sticky;left:0;background:var(--bg-secondary)">${label}</td>
-    <td style="background:var(--bg-secondary);border-left:2px solid var(--border-md)"></td>
-    ${visibleMonths.map(() => `<td style="background:var(--bg-secondary)"></td>`).join('')}
-  </tr>`;
-
-  // ── Datos ───────────────────────────────────────────────────────────────
-  const cobranzasPorMes = Array(12).fill(0);
-  state.cobros.filter(c => c.estado === 'cobrado').forEach(c => {
-    const dateRef = c.fechaCobro || c.fecha;
-    if(!dateRef) return;
-    const year = parseInt(dateRef.substring(0,4));
-    const month = parseInt(dateRef.substring(5,7)) - 1;
-    if(year === cfYear && month >= 0 && month < 12) cobranzasPorMes[month] += (c.monto || 0);
-  });
-
-  if(!otrosIngresos[cfYear]) otrosIngresos[cfYear] = {};
-  const otrosPorMes      = Array(12).fill(0).map((_,i) => getCfOtros(cfYear, i));
-  const otrosEgresosPorMes = Array(12).fill(0).map((_,i) => otrosIngresos[cfYear]['e'+i] || 0);
-  const totalIngresosPorMes = cobranzasPorMes.map((v,i) => v + otrosPorMes[i]);
-
-  const totalCobranzas = visibleMonths.reduce((s,i) => s + cobranzasPorMes[i], 0);
-  const totalOtros     = visibleMonths.reduce((s,i) => s + otrosPorMes[i], 0);
-  const totalIngresos  = totalCobranzas + totalOtros;
-
+  // ── Compute data per period ──────────────────────────────────────────────
   const conceptos = [
     'Sueldos y CCSS','Otros Gs. Personal','Gs. Administrativos',
     'Alquiler Oficina','Expensas','Otros Gs. Oficina','Impuestos',
     'Marketing Digital','Honorarios Profesionales','Mobiliario (Activo)','Equipos (Activo)',
   ];
 
-  const egresosPorConcepto = {};
-  conceptos.forEach(c => { egresosPorConcepto[c] = Array(12).fill(0); });
-  state.gastos.filter(g => g.estado === 'pagado' && g.fechaPago).forEach(g => {
-    const year = parseInt(g.fechaPago.substring(0,4));
-    const month = parseInt(g.fechaPago.substring(5,7)) - 1;
-    if(year === cfYear && month >= 0 && month < 12) {
-      const key = g.concepto && conceptos.includes(g.concepto) ? g.concepto : null;
-      if(key) egresosPorConcepto[key][month] += (g.monto || 0);
-    }
+  const cobranzas = {}, otrosI = {}, otrosE = {}, egr = {};
+  conceptos.forEach(c => { egr[c] = {}; });
+  periods.forEach(p => {
+    cobranzas[p] = 0; otrosI[p] = 0; otrosE[p] = 0;
+    conceptos.forEach(c => { egr[c][p] = 0; });
+    getMonths(p).forEach(({year, month}) => {
+      otrosI[p] += getCfOtros(year, month);
+      otrosE[p] += (otrosIngresos[year] && otrosIngresos[year]['e'+month]) || 0;
+    });
   });
 
-  const totalEgresosPorMes = Array(12).fill(0);
-  conceptos.forEach(c => { egresosPorConcepto[c].forEach((v,i) => { totalEgresosPorMes[i] += v; }); });
-  otrosEgresosPorMes.forEach((v,i) => { totalEgresosPorMes[i] += v; });
-  const totalOtrosEgresos = visibleMonths.reduce((s,i) => s + otrosEgresosPorMes[i], 0);
-  const totalEgresos = visibleMonths.reduce((s,i) => s + totalEgresosPorMes[i], 0);
+  state.cobros.filter(c => c.estado === 'cobrado').forEach(c => {
+    const d = c.fechaCobro || c.fecha; if(!d) return;
+    periods.forEach(p => { if(d.startsWith(p)) cobranzas[p] += (c.monto||0); });
+  });
 
-  const flujoPorMes = totalIngresosPorMes.map((v,i) => v - totalEgresosPorMes[i]);
-  const flujoTotal  = visibleMonths.reduce((s,i) => s + flujoPorMes[i], 0);
+  state.gastos.filter(g => g.estado === 'pagado' && g.fechaPago).forEach(g => {
+    const key = g.concepto && conceptos.includes(g.concepto) ? g.concepto : null; if(!key) return;
+    periods.forEach(p => { if(g.fechaPago.startsWith(p)) egr[key][p] += (g.monto||0); });
+  });
 
-  // ── HTML ────────────────────────────────────────────────────────────────
+  const totalI = p => cobranzas[p] + otrosI[p];
+  const totalE = p => conceptos.reduce((s,c) => s+egr[c][p], 0) + otrosE[p];
+  const flujo  = p => totalI(p) - totalE(p);
+
+  const acumCobranzas = periods.reduce((s,p)=>s+cobranzas[p],0);
+  const acumOtrosI    = periods.reduce((s,p)=>s+otrosI[p],0);
+  const acumOtrosE    = periods.reduce((s,p)=>s+otrosE[p],0);
+  const acumIngresos  = periods.reduce((s,p)=>s+totalI(p),0);
+  const acumEgresos   = periods.reduce((s,p)=>s+totalE(p),0);
+  const acumFlujo     = acumIngresos - acumEgresos;
+
+  // ── Styles ───────────────────────────────────────────────────────────────
+  const thFirst  = 'padding:8px 16px;text-align:left;font-size:11px;font-weight:500;color:var(--text-secondary);border-bottom:0.5px solid var(--border-md);min-width:200px;position:sticky;left:0;background:var(--bg-secondary)';
+  const thAcum   = 'padding:8px 14px;text-align:right;font-size:11px;font-weight:600;color:var(--text-primary);border-bottom:0.5px solid var(--border-md);white-space:nowrap;border-left:2px solid var(--border-md);background:var(--bg-secondary);min-width:130px';
+  const thPeriod = 'padding:8px 14px;text-align:right;font-size:11px;font-weight:600;color:var(--text-primary);border-bottom:0.5px solid var(--border-md);border-left:1px solid var(--border-md);min-width:120px;white-space:nowrap';
+
+  const tdNum = (v, bold=false, drill='') =>
+    `<td ${drill?`onclick="${drill}" title="Ver detalle"`:''}
+      style="${drill?'cursor:pointer;':''}text-align:right;padding:${bold?'8':'6'}px 14px;${bold?'font-weight:500;':''}font-variant-numeric:tabular-nums;border-left:1px solid var(--border-md)"
+      class="${cls(v)}">${fmt$(v)}</td>`;
+
+  const tdAcum = (v, bold=false, drill='') =>
+    `<td ${drill?`onclick="${drill}" title="Ver detalle"`:''}
+      style="${drill?'cursor:pointer;':''}text-align:right;padding:${bold?'8':'6'}px 14px;${bold?'font-weight:600;':''}font-variant-numeric:tabular-nums;border-left:2px solid var(--border-md);background:var(--bg-secondary)"
+      class="${cls(v)}">${fmt$(v)}</td>`;
+
+  const tdEdit = (v, id, fn) =>
+    `<td id="${id}" onclick="${fn}"
+      style="text-align:right;padding:6px 14px;font-variant-numeric:tabular-nums;cursor:pointer;border-left:1px solid var(--border-md)"
+      onmouseover="this.style.background='var(--info-bg)'" onmouseout="this.style.background=''"
+      class="${cls(v)}" title="Click para editar">${v!==0?fmt$(v):'<span style="color:var(--text-tertiary);font-size:11px">+</span>'}</td>`;
+
+  const sectionRow = label => `<tr style="background:var(--bg-secondary)">
+    <td style="padding:6px 16px;font-size:10px;font-weight:500;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.06em;position:sticky;left:0;background:var(--bg-secondary)">${label}</td>
+    ${showTotal?`<td style="background:var(--bg-secondary);border-left:2px solid var(--border-md)"></td>`:''}
+    ${periods.map(()=>`<td style="background:var(--bg-secondary)"></td>`).join('')}
+  </tr>`;
+
+  const allPStr = periods.join(',');
+
+  // ── HTML ─────────────────────────────────────────────────────────────────
   let html = `<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12px">
-    <thead>
-      <tr style="background:var(--bg-secondary)">
-        <th style="${thFirst}">Concepto</th>
-        <th style="${thAcum}">Acumulado</th>
-        ${visibleMonths.map(i => `<th style="${thMonth}">${months[i]} ${cfYear}</th>`).join('')}
-      </tr>
-    </thead><tbody>`;
+    <thead><tr style="background:var(--bg-secondary)">
+      <th style="${thFirst}">Concepto</th>
+      ${showTotal?`<th style="${thAcum}">Acumulado</th>`:''}
+      ${periods.map(p=>`<th style="${thPeriod}">${cfPeriodLabel(p)}</th>`).join('')}
+    </tr></thead><tbody>`;
 
   // INGRESOS
   html += sectionRow('Ingresos');
 
   html += `<tr onmouseover="this.style.background='var(--bg-secondary)'" onmouseout="this.style.background=''">
     <td style="padding:6px 16px 6px 28px;color:var(--text-secondary);position:sticky;left:0;background:inherit">Cobranzas de Venta</td>
-    ${tdAcum(totalCobranzas)}
-    ${visibleMonths.map(i => tdNum(cobranzasPorMes[i])).join('')}
+    ${showTotal?tdAcum(acumCobranzas,false,`cfDrillDown('cobros','${allPStr}')`):''}
+    ${periods.map(p=>tdNum(cobranzas[p],false,`cfDrillDown('cobros','${p}')`)).join('')}
   </tr>`;
 
   html += `<tr onmouseover="this.style.background='var(--bg-secondary)'" onmouseout="this.style.background=''">
     <td style="padding:6px 16px 6px 28px;color:var(--text-secondary);position:sticky;left:0;background:inherit;display:flex;align-items:center;gap:6px">
       Otros Ingresos <span style="font-size:10px;color:var(--info-text);background:var(--info-bg);padding:1px 6px;border-radius:10px">editable</span>
     </td>
-    ${tdAcum(totalOtros)}
-    ${visibleMonths.map(i => tdEdit(otrosPorMes[i], `cf-otros-${i}`, `openCfOtros(${i})`)).join('')}
+    ${showTotal?tdAcum(acumOtrosI):''}
+    ${periods.map(p => {
+      if(cfMode==='anio') return tdNum(otrosI[p]);
+      const yr=parseInt(p.substring(0,4)), mi=parseInt(p.substring(5,7))-1;
+      return tdEdit(otrosI[p],`cf-otros-${yr}-${mi}`,`openCfOtros(${yr},${mi})`);
+    }).join('')}
   </tr>`;
 
   html += `<tr style="border-top:0.5px solid var(--border-md)">
     <td style="padding:8px 16px;font-weight:500;position:sticky;left:0;background:inherit">Total ingresos</td>
-    ${tdAcum(totalIngresos, true)}
-    ${visibleMonths.map(i => tdNum(totalIngresosPorMes[i], true)).join('')}
+    ${showTotal?tdAcum(acumIngresos,true):''}
+    ${periods.map(p=>tdNum(totalI(p),true)).join('')}
   </tr>`;
 
   // EGRESOS
   html += sectionRow('Egresos');
 
   conceptos.forEach(concepto => {
-    const porMes = egresosPorConcepto[concepto];
-    const acum = -visibleMonths.reduce((s,i) => s + porMes[i], 0);
+    const acumC = -periods.reduce((s,p)=>s+egr[concepto][p],0);
+    const drill = (pStr) => `cfDrillDown('gastos','${pStr}','${concepto}')`;
     html += `<tr onmouseover="this.style.background='var(--bg-secondary)'" onmouseout="this.style.background=''">
       <td style="padding:6px 16px 6px 28px;color:var(--text-secondary);position:sticky;left:0;background:inherit">${concepto}</td>
-      ${tdAcum(acum)}
-      ${visibleMonths.map(i => tdNum(-porMes[i])).join('')}
+      ${showTotal?tdAcum(acumC,false,drill(allPStr)):''}
+      ${periods.map(p=>tdNum(-egr[concepto][p],false,drill(p))).join('')}
     </tr>`;
   });
 
@@ -3532,26 +3592,30 @@ function renderCfTable() {
     <td style="padding:6px 16px 6px 28px;color:var(--text-secondary);position:sticky;left:0;background:inherit;display:flex;align-items:center;gap:6px">
       Otros Egresos <span style="font-size:10px;color:var(--info-text);background:var(--info-bg);padding:1px 6px;border-radius:10px">editable</span>
     </td>
-    ${tdAcum(-totalOtrosEgresos)}
-    ${visibleMonths.map(i => tdEdit(otrosEgresosPorMes[i] > 0 ? -otrosEgresosPorMes[i] : 0, `cf-otros-e-${i}`, `openCfOtrosE(${i})`)).join('')}
+    ${showTotal?tdAcum(-acumOtrosE):''}
+    ${periods.map(p => {
+      if(cfMode==='anio') return tdNum(-otrosE[p]);
+      const yr=parseInt(p.substring(0,4)), mi=parseInt(p.substring(5,7))-1;
+      const v=(otrosIngresos[yr]&&otrosIngresos[yr]['e'+mi])||0;
+      return tdEdit(v>0?-v:0,`cf-otros-e-${yr}-${mi}`,`openCfOtrosE(${yr},${mi})`);
+    }).join('')}
   </tr>`;
 
   html += `<tr style="border-top:0.5px solid var(--border-md)">
     <td style="padding:8px 16px;font-weight:500;position:sticky;left:0;background:inherit">Total egresos</td>
-    ${tdAcum(-totalEgresos, true)}
-    ${visibleMonths.map(i => tdNum(-totalEgresosPorMes[i], true)).join('')}
+    ${showTotal?tdAcum(-acumEgresos,true):''}
+    ${periods.map(p=>tdNum(-totalE(p),true)).join('')}
   </tr>`;
 
   // FLUJO DE FONDOS
   html += `<tr style="border-top:2px solid var(--border-md)">
-    <td style="padding:10px 16px;font-size:13px;font-weight:600;position:sticky;left:0;background:${resBg(flujoTotal)}">Flujo de Fondos</td>
-    <td style="text-align:right;padding:10px 14px;font-size:13px;font-weight:600;font-variant-numeric:tabular-nums;border-left:2px solid var(--border-md);background:${resBg(flujoTotal)}" class="${cls(flujoTotal)}">${fmtSigned(flujoTotal)}</td>
-    ${visibleMonths.map(i => `<td style="text-align:right;padding:10px 14px;font-size:12px;font-weight:600;font-variant-numeric:tabular-nums;border-left:1px solid var(--border-md);background:${resBg(flujoPorMes[i])}" class="${cls(flujoPorMes[i])}">${fmtSigned(flujoPorMes[i])}</td>`).join('')}
+    <td style="padding:10px 16px;font-size:13px;font-weight:600;position:sticky;left:0;background:${resBg(acumFlujo)}">Flujo de Fondos</td>
+    ${showTotal?`<td style="text-align:right;padding:10px 14px;font-size:13px;font-weight:600;font-variant-numeric:tabular-nums;border-left:2px solid var(--border-md);background:${resBg(acumFlujo)}" class="${cls(acumFlujo)}">${fmtSigned(acumFlujo)}</td>`:''}
+    ${periods.map(p=>`<td style="text-align:right;padding:10px 14px;font-size:12px;font-weight:600;font-variant-numeric:tabular-nums;border-left:1px solid var(--border-md);background:${resBg(flujo(p))}" class="${cls(flujo(p))}">${fmtSigned(flujo(p))}</td>`).join('')}
   </tr>`;
 
   html += `</tbody></table></div>`;
   wrap.innerHTML = html;
-
   renderCfChart();
 }
 
@@ -3635,22 +3699,22 @@ function renderCfChart() {
     state.cobros.filter(c => c.estado === 'cobrado').forEach(c => {
       const dateRef = c.fechaCobro || c.fecha;
       if(!dateRef) return;
-      if(parseInt(dateRef.substring(0,4)) !== cfYear) return;
+      if(parseInt(dateRef.substring(0,4)) !== getCfYear()) return;
       const m = parseInt(dateRef.substring(5,7)) - 1;
       cobranzas[m] += (c.monto || 0);
     });
-    const otros = Array(12).fill(0).map((_,i) => getCfOtros(cfYear, i));
+    const otros = Array(12).fill(0).map((_,i) => getCfOtros(getCfYear(), i));
     ingrData = cobranzas.map((v,i) => v + otros[i]);
 
     // Egresos por mes
     const conceptos = ['Sueldos y CCSS','Otros Gs. Personal','Gs. Administrativos','Alquiler Oficina','Expensas','Otros Gs. Oficina','Impuestos','Marketing Digital','Honorarios Profesionales','Mobiliario (Activo)','Equipos (Activo)'];
     const egr = Array(12).fill(0);
     state.gastos.filter(g => g.estado === 'pagado' && g.fechaPago).forEach(g => {
-      if(parseInt(g.fechaPago.substring(0,4)) !== cfYear) return;
+      if(parseInt(g.fechaPago.substring(0,4)) !== getCfYear()) return;
       const m = parseInt(g.fechaPago.substring(5,7)) - 1;
       if(conceptos.includes(g.concepto)) egr[m] += (g.monto || 0);
     });
-    const otrosE = Array(12).fill(0).map((_,i) => (otrosIngresos[cfYear] && otrosIngresos[cfYear]['e'+i]) || 0);
+    const otrosE = Array(12).fill(0).map((_,i) => (otrosIngresos[getCfYear()] && otrosIngresos[getCfYear()]['e'+i]) || 0);
     egrData = egr.map((v,i) => v + otrosE[i]);
     flujoData = ingrData.map((v,i) => v - egrData[i]);
 
@@ -4051,7 +4115,7 @@ function exportXLS(sheet) {
 
   if(sheet === 'all') {
     // Cashflow sheet
-    const now = new Date(); const yr = cfYear;
+    const now = new Date(); const yr = getCfYear();
     const months = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
     const cfRows = [['Concepto', ...months, 'Total']];
     const cobranzas = Array(12).fill(0);
@@ -4159,19 +4223,19 @@ function exportPDF(sheet) {
     const cobranzas = Array(12).fill(0);
     state.cobros.filter(c=>c.estado==='cobrado').forEach(c=>{
       const dr=c.fechaCobro||c.fecha; if(!dr) return;
-      if(parseInt(dr.substring(0,4))!==cfYear) return;
+      if(parseInt(dr.substring(0,4))!==getCfYear()) return;
       cobranzas[parseInt(dr.substring(5,7))-1]+=(c.monto||0);
     });
     const conceptosCf = ['Sueldos y CCSS','Otros Gs. Personal','Gs. Administrativos','Alquiler Oficina','Expensas','Otros Gs. Oficina','Impuestos','Marketing Digital','Honorarios Profesionales','Mobiliario (Activo)','Equipos (Activo)'];
     const egr = {}; conceptosCf.forEach(c=>{egr[c]=Array(12).fill(0);});
     state.gastos.filter(g=>g.estado==='pagado'&&g.fechaPago).forEach(g=>{
-      if(parseInt(g.fechaPago.substring(0,4))!==cfYear) return;
+      if(parseInt(g.fechaPago.substring(0,4))!==getCfYear()) return;
       const m=parseInt(g.fechaPago.substring(5,7))-1;
       if(conceptosCf.includes(g.concepto)) egr[g.concepto][m]+=(g.monto||0);
     });
     const totE=Array(12).fill(0); conceptosCf.forEach(c=>egr[c].forEach((v,i)=>totE[i]+=v));
     const flujo=cobranzas.map((v,i)=>v-totE[i]);
-    title = 'Cashflow ' + cfYear;
+    title = 'Cashflow ' + getCfYear();
     html = `<table><thead><tr><th>Concepto</th>${months.map(m=>`<th>${m}</th>`).join('')}<th>Total</th></tr></thead><tbody>
       <tr style="background:#f5f5f5"><td colspan="14"><strong>INGRESOS</strong></td></tr>
       <tr style="font-weight:bold"><td>Cobranzas de Venta</td>${cobranzas.map(v=>`<td style="text-align:right">${v?fmt$(v):'—'}</td>`).join('')}<td style="text-align:right">${fmt$(cobranzas.reduce((s,v)=>s+v,0))}</td></tr>
