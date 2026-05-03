@@ -105,10 +105,32 @@
   .mono-fill { height: 100%; border-radius: 4px; background: var(--info-bg); transition: width 0.5s; }
   .mono-fill.warn { background: var(--warning-bg); }
   .mono-fill.danger { background: var(--danger-bg); }
+  .mobile-nav { display: none; }
   @media (max-width: 700px) {
     .metrics-grid { grid-template-columns: 1fr 1fr; }
     .panels-row { grid-template-columns: 1fr; }
     .sidebar { display: none; }
+    .mobile-nav { display: flex; align-items: center; gap: 8px; }
+    .mobile-nav select {
+      font-size: 13px;
+      font-weight: 500;
+      font-family: var(--font);
+      color: var(--text-primary);
+      background: var(--bg-secondary);
+      border: 0.5px solid var(--border-md);
+      border-radius: var(--radius-md);
+      padding: 6px 28px 6px 10px;
+      outline: none;
+      cursor: pointer;
+      appearance: none;
+      -webkit-appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%236b6b66' stroke-width='1.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 10px center;
+      max-width: 220px;
+    }
+    #page-title { display: none; }
+    .topbar-right .badge { display: none; }
   }
   .cfd-wrap{position:relative;width:100%}
   .cfd-trigger{width:100%;font-size:11px;padding:3px 20px 3px 6px;border:0.5px solid var(--border-md);border-radius:4px;background:var(--bg-primary);color:var(--text-primary);cursor:pointer;text-align:left;display:flex;align-items:center;justify-content:space-between;gap:4px;min-height:22px}
@@ -152,6 +174,25 @@
   <div class="main" id="main-content">
     <div class="topbar">
       <h1 id="page-title">Dashboard</h1>
+      <div class="mobile-nav">
+        <select id="mobile-page-select" onchange="showPage(this.value)">
+          <optgroup label="Input">
+            <option value="cobros">Ventas &amp; Cobranzas</option>
+            <option value="gastos">Gastos &amp; Pagos</option>
+          </optgroup>
+          <optgroup label="Summary">
+            <option value="dashboard">Dashboard</option>
+          </optgroup>
+          <optgroup label="Statements">
+            <option value="pnl">P&amp;L</option>
+            <option value="flujo">Cashflow</option>
+            <option value="balance">Balance Sheet</option>
+          </optgroup>
+          <optgroup label="Fiscal">
+            <option value="monotributo">Monotributo</option>
+          </optgroup>
+        </select>
+      </div>
       <div class="topbar-right">
         <button onclick="exportXLS('all')" class="btn-secondary" style="font-size:11px;padding:5px 12px">⬇ XLS</button>
           <button onclick="exportPDF('all')" class="btn-secondary" style="font-size:11px;padding:5px 12px">⬇ PDF</button>
@@ -945,6 +986,7 @@ function showPage(name) {
   document.getElementById('page-title').textContent = pageTitles[name] || name;
   document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
   document.querySelectorAll('.nav-item').forEach(el => { if(el.getAttribute('onclick') && el.getAttribute('onclick').includes("'"+name+"'")) el.classList.add('active'); });
+  const msel = document.getElementById('mobile-page-select'); if(msel) msel.value = name;
   if(name==='cobros') { renderCobros(); loadFxRates(); }
   if(name==='gastos') { renderGastos(); loadFxRatesGs(); }
   if(name==='flujo') renderFlujo();
@@ -1887,12 +1929,12 @@ function renderPnlTable() {
   html += `<div class="panel" style="margin-top:20px">
     <div class="panel-header"><h2>Evolución del período</h2></div>
     <div class="panel-body">
-      <div style="display:flex;gap:16px;font-size:11px;margin-bottom:12px">
-        <span style="display:flex;align-items:center;gap:5px;color:var(--success-text)"><span style="width:10px;height:3px;background:#1D9E75;display:inline-block;border-radius:2px"></span>Ventas</span>
-        <span style="display:flex;align-items:center;gap:5px;color:var(--danger-text)"><span style="width:10px;height:3px;background:#D85A30;display:inline-block;border-radius:2px"></span>Costos</span>
-        <span style="display:flex;align-items:center;gap:5px;color:var(--info-text)"><span style="width:10px;height:3px;background:#3B8BD4;display:inline-block;border-radius:2px"></span>Resultado neto</span>
+      <div style="display:flex;gap:16px;font-size:11px;margin-bottom:12px;flex-wrap:wrap">
+        <span style="display:flex;align-items:center;gap:5px;color:var(--success-text)"><span style="width:10px;height:3px;background:#1D9E75;display:inline-block;border-radius:2px"></span>Ticket promedio</span>
+        <span style="display:flex;align-items:center;gap:5px;color:var(--danger-text)"><span style="width:10px;height:3px;background:#D85A30;display:inline-block;border-radius:2px"></span>Costo promedio</span>
+        <span style="display:flex;align-items:center;gap:5px;color:var(--info-text)"><span style="width:12px;height:10px;background:rgba(59,139,212,0.25);border:1.5px solid #3B8BD4;display:inline-block;border-radius:2px"></span>Cantidad de ventas</span>
       </div>
-      <div style="position:relative;height:200px"><canvas id="pnl-chart"></canvas></div>
+      <div style="position:relative;height:220px"><canvas id="pnl-chart"></canvas></div>
     </div>
   </div>`;
 
@@ -1907,22 +1949,85 @@ function renderPnlTable() {
     const gridColor = dark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)';
     const tickColor = dark ? '#666' : '#aaa';
     const labels = periods.map(periodLabel);
-    const ventasData = periods.map(p => data[p].ventas / 1000);
-    const costosData = periods.map(p => data[p].totalCostos / 1000);
-    const resData = periods.map(p => data[p].resultado / 1000);
+    const cantData = periods.map(p => state.cobros.filter(c => c.fecha && c.fecha.startsWith(p)).length);
+    const ticketData = periods.map((p, i) => {
+      const cant = cantData[i];
+      return cant > 0 ? Math.round(data[p].ventas / cant) : 0;
+    });
+    const costoData = periods.map((p, i) => {
+      const cant = cantData[i];
+      return cant > 0 ? Math.round(data[p].totalCostos / cant) : 0;
+    });
     window._pnlChartInst = new Chart(ctx, {
-      type: 'line',
-      data: { labels, datasets: [
-        { label:'Ventas', data:ventasData, borderColor:'#1D9E75', backgroundColor:'rgba(29,158,117,0.07)', borderWidth:2, pointRadius:4, tension:0.35, fill:true },
-        { label:'Costos', data:costosData, borderColor:'#D85A30', backgroundColor:'rgba(216,90,48,0.07)', borderWidth:2, pointRadius:4, tension:0.35, fill:true },
-        { label:'Resultado neto', data:resData, borderColor:'#3B8BD4', backgroundColor:'rgba(59,139,212,0.07)', borderWidth:2, pointRadius:4, tension:0.35, fill:false, borderDash:[5,3] },
-      ]},
+      data: {
+        labels,
+        datasets: [
+          {
+            type: 'bar',
+            label: 'Cantidad de ventas',
+            data: cantData,
+            backgroundColor: 'rgba(59,139,212,0.2)',
+            borderColor: '#3B8BD4',
+            borderWidth: 1.5,
+            borderRadius: 4,
+            yAxisID: 'yCant',
+            order: 2,
+          },
+          {
+            type: 'line',
+            label: 'Ticket promedio',
+            data: ticketData,
+            borderColor: '#1D9E75',
+            backgroundColor: 'transparent',
+            borderWidth: 2,
+            pointRadius: 4,
+            pointBackgroundColor: '#1D9E75',
+            tension: 0.35,
+            yAxisID: 'yPesos',
+            order: 1,
+          },
+          {
+            type: 'line',
+            label: 'Costo promedio',
+            data: costoData,
+            borderColor: '#D85A30',
+            backgroundColor: 'transparent',
+            borderWidth: 2,
+            pointRadius: 4,
+            pointBackgroundColor: '#D85A30',
+            tension: 0.35,
+            yAxisID: 'yPesos',
+            order: 1,
+          },
+        ]
+      },
       options: {
-        responsive:true, maintainAspectRatio:false,
-        plugins:{ legend:{display:false}, tooltip:{ callbacks:{ label: c => c.dataset.label+': $'+c.raw.toFixed(0)+'k' } } },
-        scales:{
-          x:{ grid:{display:false}, ticks:{font:{size:10},color:tickColor} },
-          y:{ grid:{color:gridColor}, ticks:{font:{size:10},color:tickColor,callback:v=>'$'+v+'k'} }
+        responsive: true,
+        maintainAspectRatio: false,
+        interaction: { mode: 'index', intersect: false },
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            callbacks: {
+              label: c => {
+                if(c.dataset.yAxisID === 'yPesos') return c.dataset.label + ': ' + fmtPesos(c.raw);
+                return c.dataset.label + ': ' + c.raw;
+              }
+            }
+          }
+        },
+        scales: {
+          x: { grid: { display: false }, ticks: { font: { size: 10 }, color: tickColor } },
+          yPesos: {
+            position: 'left',
+            grid: { color: gridColor },
+            ticks: { font: { size: 10 }, color: tickColor, callback: v => '$' + (v >= 1000 ? Math.round(v/1000) + 'k' : v) }
+          },
+          yCant: {
+            position: 'right',
+            grid: { display: false },
+            ticks: { font: { size: 10 }, color: tickColor, stepSize: 1, callback: v => Number.isInteger(v) ? v : '' }
+          }
         }
       }
     });
