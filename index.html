@@ -115,7 +115,7 @@
   .cfd-trigger-text{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text-tertiary);font-style:italic}
   .cfd-trigger-text.cfd-active{color:var(--text-primary);font-style:normal;font-weight:500}
   .cfd-arrow{font-size:9px;color:var(--text-tertiary);flex-shrink:0}
-  .cfd-drop{display:none;position:absolute;top:calc(100% + 4px);left:0;z-index:300;min-width:200px;max-width:320px;background:var(--bg-primary);border:0.5px solid var(--border-md);border-radius:8px;box-shadow:0 6px 20px rgba(0,0,0,0.16);overflow:hidden}
+  .cfd-drop{display:none;position:fixed;z-index:9999;min-width:200px;max-width:320px;background:var(--bg-primary);border:0.5px solid var(--border-md);border-radius:8px;box-shadow:0 6px 20px rgba(0,0,0,0.16);overflow:hidden}
   .cfd-drop.open{display:flex;flex-direction:column}
   .cfd-search-wrap{padding:8px 10px;border-bottom:0.5px solid var(--border)}
   .cfd-search-wrap input{width:100%;border:none;outline:none;font-size:13px;background:transparent;color:var(--text-primary)}
@@ -2304,6 +2304,9 @@ function cfdOpen(id) {
   const isOpen = drop.classList.contains('open');
   document.querySelectorAll('.cfd-drop.open').forEach(d => d.classList.remove('open'));
   if (!isOpen) {
+    const rect = wrap.querySelector('.cfd-trigger').getBoundingClientRect();
+    drop.style.top = (rect.bottom + 4) + 'px';
+    drop.style.left = rect.left + 'px';
     drop.classList.add('open');
     const si = wrap.querySelector('.cfd-search-wrap input');
     if (si) { si.value = ''; si.focus(); }
@@ -2380,7 +2383,7 @@ function cfdUpdateTrigger(id) {
   }
 }
 
-document.addEventListener('click', e => {
+document.addEventListener('mousedown', e => {
   if (!e.target.closest('[id^="cfd-"]')) document.querySelectorAll('.cfd-drop.open').forEach(d => d.classList.remove('open'));
 });
 
