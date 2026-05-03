@@ -1742,6 +1742,24 @@ function getPnlDataForPeriod(key) {
   return { ventas, costos, totalCostos, resultado };
 }
 
+function pnlDrillDown(type, periodsStr, concepto) {
+  const periods = periodsStr.split(',');
+  if (type === 'ventas') {
+    selectedCbPeriods.clear();
+    periods.forEach(p => selectedCbPeriods.add(p));
+    ['cbf-fecha','cbf-desc','cbf-client','cbf-monto','cbf-estado','cbf-notas','cbf-fechaCobro'].forEach(id => { cfdState[id] = new Set(); cfdUpdateTrigger(id); });
+    buildPeriodDropdownGeneric('cb-period-list', selectedCbPeriods, 'cb-period-label');
+    showPage('cobros');
+  } else {
+    selectedGsPeriods.clear();
+    periods.forEach(p => selectedGsPeriods.add(p));
+    ['gsf-fecha','gsf-desc','gsf-concepto','gsf-rec','gsf-monto','gsf-estado','gsf-fechaPago'].forEach(id => { cfdState[id] = new Set(); cfdUpdateTrigger(id); });
+    if (concepto) { cfdState['gsf-concepto'] = new Set([concepto]); cfdUpdateTrigger('gsf-concepto'); }
+    buildPeriodDropdownGeneric('gs-period-list', selectedGsPeriods, 'gs-period-label');
+    showPage('gastos');
+  }
+}
+
 function renderPnlTable() {
   const wrap = document.getElementById('pnl-table-wrap');
   if(!wrap) return;
@@ -1809,8 +1827,8 @@ function renderPnlTable() {
       </tr>
     </thead><tbody>`;
 
-  const tdTotal = (v, pct='', bold=false, bg='') => showTotal ? `
-    <td style="text-align:right;padding:${bold?'10':'6'}px 14px;${bold?'font-weight:600;':''}font-variant-numeric:tabular-nums;border-left:2px solid var(--border-md);background:${bg||'var(--bg-secondary)'}" class="${cls(v)}">${fmt$(v)}</td>
+  const tdTotal = (v, pct='', bold=false, bg='', extraAttrs='') => showTotal ? `
+    <td ${extraAttrs} style="text-align:right;padding:${bold?'10':'6'}px 14px;${bold?'font-weight:600;':''}font-variant-numeric:tabular-nums;border-left:2px solid var(--border-md);background:${bg||'var(--bg-secondary)'}" class="${cls(v)}">${fmt$(v)}</td>
     <td style="text-align:right;padding:${bold?'10':'6'}px 14px;font-size:11px;color:var(--text-tertiary);background:${bg||'var(--bg-secondary)'};">${pct}</td>` : '';
 
   const sectionRow = label => `<tr style="background:var(--bg-secondary)">
@@ -1819,26 +1837,31 @@ function renderPnlTable() {
     ${periods.map(() => `<td style="background:var(--bg-secondary)"></td>`).join('')}
   </tr>`;
 
-  const dataRow = (label, totalVal, totalPct, vals, bold=false, border='') => `<tr style="${border}" onmouseover="this.style.background='var(--bg-secondary)'" onmouseout="this.style.background=''">
-    <td style="padding:${bold?'8':'6'}px 16px ${bold?'8':'6'}px ${bold?'16':'28'}px;font-size:12px;${bold?'font-weight:500':'color:var(--text-secondary)'};position:sticky;left:0;background:inherit">${label}</td>
-    ${tdTotal(totalVal, totalPct, bold)}
-    ${vals.map(v => `<td style="text-align:right;padding:${bold?'8':'6'}px 14px;${bold?'font-weight:500;':''}font-variant-numeric:tabular-nums" class="${cls(v)}">${fmt$(v)}</td>`).join('')}
-  </tr>`;
+  const dataRow = (label, totalVal, totalPct, vals, bold=false, border='', drillType=null, drillConcepto=null) => {
+    const allPeriods = periods.join(',');
+    const totalClick = drillType ? `onclick="pnlDrillDown('${drillType}','${allPeriods}'${drillConcepto?`,'${drillConcepto}'`:''})" style="cursor:pointer" title="Ver detalle"` : '';
+    const cellClick = (p) => drillType ? `onclick="pnlDrillDown('${drillType}','${p}'${drillConcepto?`,'${drillConcepto}'`:''})" style="cursor:pointer" title="Ver detalle"` : '';
+    return `<tr style="${border}" onmouseover="this.style.background='var(--bg-secondary)'" onmouseout="this.style.background=''">
+      <td style="padding:${bold?'8':'6'}px 16px ${bold?'8':'6'}px ${bold?'16':'28'}px;font-size:12px;${bold?'font-weight:500':'color:var(--text-secondary)'};position:sticky;left:0;background:inherit">${label}</td>
+      ${tdTotal(totalVal, totalPct, bold, '', totalClick)}
+      ${vals.map((v,i) => `<td ${cellClick(periods[i])} style="text-align:right;padding:${bold?'8':'6'}px 14px;${bold?'font-weight:500;':''}font-variant-numeric:tabular-nums" class="${cls(v)}">${fmt$(v)}</td>`).join('')}
+    </tr>`;
+  };
 
   // VENTAS
   html += sectionRow('Ventas');
   html += dataRow('Total ventas', total.ventas, fmtPct(total.ventas, total.ventas),
-    periods.map(p => data[p].ventas), true, 'border-top:0.5px solid var(--border-md)');
+    periods.map(p => data[p].ventas), true, 'border-top:0.5px solid var(--border-md)', 'ventas');
 
   // COSTOS & GASTOS
   html += sectionRow('Costos & Gastos');
   PNL_CONCEPTOS.forEach(c => {
     const tv = -(total.costos[c]||0);
     html += dataRow(c, tv, fmtPct(Math.abs(tv), total.ventas),
-      periods.map(p => -(data[p].costos[c]||0)));
+      periods.map(p => -(data[p].costos[c]||0)), false, '', 'gasto', c);
   });
   html += dataRow('Total costos & gastos', -total.totalCostos, fmtPct(total.totalCostos, total.ventas),
-    periods.map(p => -data[p].totalCostos), true, 'border-top:0.5px solid var(--border-md)');
+    periods.map(p => -data[p].totalCostos), true, 'border-top:0.5px solid var(--border-md)', 'gasto');
 
   // RESULTADO NETO — semáforo visual por columna
   const resBg = r => r > 0 ? 'var(--success-bg)' : r < 0 ? 'var(--danger-bg)' : 'var(--bg-secondary)';
