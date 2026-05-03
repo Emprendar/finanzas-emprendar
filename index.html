@@ -1839,12 +1839,13 @@ function renderPnlTable() {
 
   const dataRow = (label, totalVal, totalPct, vals, bold=false, border='', drillType=null, drillConcepto=null) => {
     const allPeriods = periods.join(',');
-    const totalClick = drillType ? `onclick="pnlDrillDown('${drillType}','${allPeriods}'${drillConcepto?`,'${drillConcepto}'`:''})" style="cursor:pointer" title="Ver detalle"` : '';
-    const cellClick = (p) => drillType ? `onclick="pnlDrillDown('${drillType}','${p}'${drillConcepto?`,'${drillConcepto}'`:''})" style="cursor:pointer" title="Ver detalle"` : '';
+    const totalAttrs = drillType ? `onclick="pnlDrillDown('${drillType}','${allPeriods}'${drillConcepto?`,'${drillConcepto}'`:''})" title="Ver detalle"` : '';
+    const cellAttrs = (p) => drillType ? `onclick="pnlDrillDown('${drillType}','${p}'${drillConcepto?`,'${drillConcepto}'`:''})" title="Ver detalle"` : '';
+    const cellCursor = drillType ? 'cursor:pointer;' : '';
     return `<tr style="${border}" onmouseover="this.style.background='var(--bg-secondary)'" onmouseout="this.style.background=''">
       <td style="padding:${bold?'8':'6'}px 16px ${bold?'8':'6'}px ${bold?'16':'28'}px;font-size:12px;${bold?'font-weight:500':'color:var(--text-secondary)'};position:sticky;left:0;background:inherit">${label}</td>
-      ${tdTotal(totalVal, totalPct, bold, '', totalClick)}
-      ${vals.map((v,i) => `<td ${cellClick(periods[i])} style="text-align:right;padding:${bold?'8':'6'}px 14px;${bold?'font-weight:500;':''}font-variant-numeric:tabular-nums;border-left:1px solid var(--border-md)" class="${cls(v)}">${fmt$(v)}</td>`).join('')}
+      ${tdTotal(totalVal, totalPct, bold, '', totalAttrs)}
+      ${vals.map((v,i) => `<td ${cellAttrs(periods[i])} style="${cellCursor}text-align:right;padding:${bold?'8':'6'}px 14px;${bold?'font-weight:500;':''}font-variant-numeric:tabular-nums;border-left:1px solid var(--border-md)" class="${cls(v)}">${fmt$(v)}</td>`).join('')}
     </tr>`;
   };
 
