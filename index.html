@@ -2518,16 +2518,10 @@ function saveCobro() {
   });
 }
 
-function renderCobros() {
-  const tbody = document.getElementById('cobros-table');
-  if(!tbody) return;
-
-  // Filter by selected periods
+function getFilteredCobros() {
   let cobros = selectedCbPeriods.size > 0
     ? state.cobros.filter(c => c.fecha && selectedCbPeriods.has(c.fecha.substring(0,7)))
     : state.cobros;
-
-  // Per-column filters
   const cbfFecha   = (document.getElementById('cbf-fecha')?.value   || '').toLowerCase();
   const cbfDesc    = (document.getElementById('cbf-desc')?.value    || '').toLowerCase();
   const cbfClient  = (document.getElementById('cbf-client')?.value  || '').toLowerCase();
@@ -2540,6 +2534,14 @@ function renderCobros() {
   if(cbfMonto)  cobros = cobros.filter(c => String(c.monto||'').includes(cbfMonto));
   if(cbfEstado) cobros = cobros.filter(c => c.estado === cbfEstado);
   if(cbfNotas)  cobros = cobros.filter(c => (c.notas||'').toLowerCase().includes(cbfNotas));
+  return cobros;
+}
+
+function renderCobros() {
+  const tbody = document.getElementById('cobros-table');
+  if(!tbody) return;
+
+  let cobros = getFilteredCobros();
 
   if(!cobros.length) {
     tbody.innerHTML = `<tr><td colspan="9" style="text-align:center;padding:32px 16px;color:var(--text-tertiary);font-size:12px">${selectedCbPeriods.size>0?'No hay cobros para los períodos seleccionados.':'Todavía no registraste ningún cobro — usá el botón <strong style="color:var(--text-secondary)">+ Venta/Cobranza</strong> para empezar.'}</td></tr>`;
@@ -3762,7 +3764,7 @@ function exportXLS(sheet) {
   const wb = XLSX.utils.book_new();
 
   if(sheet === 'cobros' || sheet === 'all') {
-    const cobrosFilt = selectedCbPeriods.size > 0 ? state.cobros.filter(c => c.fecha && selectedCbPeriods.has(c.fecha.substring(0,7))) : state.cobros;
+    const cobrosFilt = getFilteredCobros();
     const rows = [['Fecha emisión','Descripción','Cliente','Monto ARS','Monto USD','Estado','Fecha cobro','Notas']];
     cobrosFilt.forEach(c => rows.push([
       fmtDate(c.fecha), c.desc, c.client, c.monto, c.montoUsd || '',
@@ -3877,7 +3879,7 @@ function exportPDF(sheet) {
 
   if(sheet === 'cobros') {
     title = 'Ventas & Cobranzas' + (selectedCbPeriods.size > 0 ? ' — ' + [...selectedCbPeriods].map(monthLabel).join(', ') : '');
-    const cobrosFiltP = selectedCbPeriods.size > 0 ? state.cobros.filter(c => c.fecha && selectedCbPeriods.has(c.fecha.substring(0,7))) : state.cobros;
+    const cobrosFiltP = getFilteredCobros();
     html = `<table><thead><tr><th>Fecha</th><th>Descripción</th><th>Cliente</th><th>Monto ARS</th><th>Monto USD</th><th>Estado</th><th>Fecha cobro</th><th>Notas</th></tr></thead><tbody>
       ${cobrosFiltP.map(c => `<tr>
         <td>${c.fecha||''}</td><td>${c.desc||''}</td><td>${c.client||''}</td>
