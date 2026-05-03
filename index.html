@@ -110,6 +110,20 @@
     .panels-row { grid-template-columns: 1fr; }
     .sidebar { display: none; }
   }
+  .cfd-wrap{position:relative;width:100%}
+  .cfd-trigger{width:100%;font-size:11px;padding:3px 20px 3px 6px;border:0.5px solid var(--border-md);border-radius:4px;background:var(--bg-primary);color:var(--text-primary);cursor:pointer;text-align:left;display:flex;align-items:center;justify-content:space-between;gap:4px;min-height:22px}
+  .cfd-trigger-text{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text-tertiary);font-style:italic}
+  .cfd-trigger-text.cfd-active{color:var(--text-primary);font-style:normal;font-weight:500}
+  .cfd-arrow{font-size:9px;color:var(--text-tertiary);flex-shrink:0}
+  .cfd-drop{display:none;position:absolute;top:calc(100% + 2px);left:0;z-index:300;min-width:160px;max-width:300px;background:var(--bg-primary);border:0.5px solid var(--border-md);border-radius:6px;box-shadow:0 4px 16px rgba(0,0,0,0.14);overflow:hidden}
+  .cfd-drop.open{display:flex;flex-direction:column}
+  .cfd-search-wrap{padding:6px 8px;border-bottom:0.5px solid var(--border)}
+  .cfd-search-wrap input{width:100%;border:none;outline:none;font-size:12px;background:transparent;color:var(--text-primary)}
+  .cfd-list{overflow-y:auto;max-height:180px}
+  .cfd-item{padding:5px 12px;font-size:12px;cursor:pointer;color:var(--text-primary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .cfd-item:hover{background:var(--bg-secondary)}
+  .cfd-item.cfd-sel{background:var(--bg-tertiary);font-weight:600}
+  .cfd-empty{padding:8px 12px;font-size:12px;color:var(--text-tertiary);font-style:italic}
 </style>
 </head>
 <body>
@@ -387,14 +401,14 @@
         <table class="data-table"><thead>
   <tr><th>Fecha emisión</th><th>Descripción</th><th>Cliente</th><th>Monto</th><th>USD</th><th>Estado</th><th>Fecha cobro</th><th>Notas</th><th>Comprobante</th><th></th></tr>
   <tr style="background:var(--bg-secondary)">
-    <th style="padding:4px 8px"><input oninput="renderCobros()" id="cbf-fecha" placeholder="Filtrar..." style="width:100%;font-size:11px;padding:3px 6px;border:0.5px solid var(--border-md);border-radius:4px;background:var(--bg-primary);color:var(--text-primary);outline:none"></th>
-    <th style="padding:4px 8px"><input oninput="renderCobros()" id="cbf-desc" placeholder="Filtrar..." style="width:100%;font-size:11px;padding:3px 6px;border:0.5px solid var(--border-md);border-radius:4px;background:var(--bg-primary);color:var(--text-primary);outline:none"></th>
-    <th style="padding:4px 8px"><input oninput="renderCobros()" id="cbf-client" placeholder="Filtrar..." style="width:100%;font-size:11px;padding:3px 6px;border:0.5px solid var(--border-md);border-radius:4px;background:var(--bg-primary);color:var(--text-primary);outline:none"></th>
-    <th style="padding:4px 8px"><input oninput="renderCobros()" id="cbf-monto" placeholder="Filtrar..." style="width:100%;font-size:11px;padding:3px 6px;border:0.5px solid var(--border-md);border-radius:4px;background:var(--bg-primary);color:var(--text-primary);outline:none"></th>
+    <th style="padding:4px 8px"><div id="cfd-cbf-fecha" class="cfd-wrap" data-table="cobros" data-field="fecha"><button class="cfd-trigger" onclick="cfdOpen('cbf-fecha')"><span class="cfd-trigger-text">Filtrar...</span><span class="cfd-arrow">▾</span></button><div class="cfd-drop"><div class="cfd-search-wrap"><input type="text" placeholder="Buscar..." oninput="cfdRebuild('cbf-fecha')"></div><div class="cfd-list"></div></div></div></th>
+    <th style="padding:4px 8px"><div id="cfd-cbf-desc" class="cfd-wrap" data-table="cobros" data-field="desc"><button class="cfd-trigger" onclick="cfdOpen('cbf-desc')"><span class="cfd-trigger-text">Filtrar...</span><span class="cfd-arrow">▾</span></button><div class="cfd-drop"><div class="cfd-search-wrap"><input type="text" placeholder="Buscar..." oninput="cfdRebuild('cbf-desc')"></div><div class="cfd-list"></div></div></div></th>
+    <th style="padding:4px 8px"><div id="cfd-cbf-client" class="cfd-wrap" data-table="cobros" data-field="client"><button class="cfd-trigger" onclick="cfdOpen('cbf-client')"><span class="cfd-trigger-text">Filtrar...</span><span class="cfd-arrow">▾</span></button><div class="cfd-drop"><div class="cfd-search-wrap"><input type="text" placeholder="Buscar..." oninput="cfdRebuild('cbf-client')"></div><div class="cfd-list"></div></div></div></th>
+    <th style="padding:4px 8px"><div id="cfd-cbf-monto" class="cfd-wrap" data-table="cobros" data-field="monto"><button class="cfd-trigger" onclick="cfdOpen('cbf-monto')"><span class="cfd-trigger-text">Filtrar...</span><span class="cfd-arrow">▾</span></button><div class="cfd-drop"><div class="cfd-search-wrap"><input type="text" placeholder="Buscar..." oninput="cfdRebuild('cbf-monto')"></div><div class="cfd-list"></div></div></div></th>
     <th style="padding:4px 8px"></th>
-    <th style="padding:4px 8px"><select onchange="renderCobros()" id="cbf-estado" style="width:100%;font-size:11px;padding:3px 4px;border:0.5px solid var(--border-md);border-radius:4px;background:var(--bg-primary);color:var(--text-primary);outline:none"><option value="">Todos</option><option value="pendiente">Pendiente</option><option value="cobrado">Cobrado</option></select></th>
+    <th style="padding:4px 8px"><div id="cfd-cbf-estado" class="cfd-wrap" data-table="cobros" data-field="estado"><button class="cfd-trigger" onclick="cfdOpen('cbf-estado')"><span class="cfd-trigger-text">Filtrar...</span><span class="cfd-arrow">▾</span></button><div class="cfd-drop"><div class="cfd-search-wrap"><input type="text" placeholder="Buscar..." oninput="cfdRebuild('cbf-estado')"></div><div class="cfd-list"></div></div></div></th>
     <th style="padding:4px 8px"></th>
-    <th style="padding:4px 8px"><input oninput="renderCobros()" id="cbf-notas" placeholder="Filtrar..." style="width:100%;font-size:11px;padding:3px 6px;border:0.5px solid var(--border-md);border-radius:4px;background:var(--bg-primary);color:var(--text-primary);outline:none"></th>
+    <th style="padding:4px 8px"><div id="cfd-cbf-notas" class="cfd-wrap" data-table="cobros" data-field="notas"><button class="cfd-trigger" onclick="cfdOpen('cbf-notas')"><span class="cfd-trigger-text">Filtrar...</span><span class="cfd-arrow">▾</span></button><div class="cfd-drop"><div class="cfd-search-wrap"><input type="text" placeholder="Buscar..." oninput="cfdRebuild('cbf-notas')"></div><div class="cfd-list"></div></div></div></th>
     <th></th><th></th>
   </tr>
 </thead><tbody id="cobros-table"></tbody></table>
@@ -536,13 +550,13 @@
         <table class="data-table"><thead>
   <tr><th>Fecha</th><th>Descripción</th><th>Concepto</th><th>Recurrencia</th><th>Monto</th><th>USD</th><th>Estado</th><th>Fecha pago</th><th>Comprobante</th><th></th></tr>
   <tr style="background:var(--bg-secondary)">
-    <th style="padding:4px 8px"><input oninput="renderGastos()" id="gsf-fecha" placeholder="Filtrar..." style="width:100%;font-size:11px;padding:3px 6px;border:0.5px solid var(--border-md);border-radius:4px;background:var(--bg-primary);color:var(--text-primary);outline:none"></th>
-    <th style="padding:4px 8px"><input oninput="renderGastos()" id="gsf-desc" placeholder="Filtrar..." style="width:100%;font-size:11px;padding:3px 6px;border:0.5px solid var(--border-md);border-radius:4px;background:var(--bg-primary);color:var(--text-primary);outline:none"></th>
-    <th style="padding:4px 8px"><input oninput="renderGastos()" id="gsf-concepto" placeholder="Filtrar..." style="width:100%;font-size:11px;padding:3px 6px;border:0.5px solid var(--border-md);border-radius:4px;background:var(--bg-primary);color:var(--text-primary);outline:none"></th>
-    <th style="padding:4px 8px"><select onchange="renderGastos()" id="gsf-rec" style="width:100%;font-size:11px;padding:3px 4px;border:0.5px solid var(--border-md);border-radius:4px;background:var(--bg-primary);color:var(--text-primary);outline:none"><option value="">Todos</option><option>Único</option><option>Mensual fijo</option><option>Variable</option></select></th>
-    <th style="padding:4px 8px"><input oninput="renderGastos()" id="gsf-monto" placeholder="Filtrar..." style="width:100%;font-size:11px;padding:3px 6px;border:0.5px solid var(--border-md);border-radius:4px;background:var(--bg-primary);color:var(--text-primary);outline:none"></th>
+    <th style="padding:4px 8px"><div id="cfd-gsf-fecha" class="cfd-wrap" data-table="gastos" data-field="fecha"><button class="cfd-trigger" onclick="cfdOpen('gsf-fecha')"><span class="cfd-trigger-text">Filtrar...</span><span class="cfd-arrow">▾</span></button><div class="cfd-drop"><div class="cfd-search-wrap"><input type="text" placeholder="Buscar..." oninput="cfdRebuild('gsf-fecha')"></div><div class="cfd-list"></div></div></div></th>
+    <th style="padding:4px 8px"><div id="cfd-gsf-desc" class="cfd-wrap" data-table="gastos" data-field="desc"><button class="cfd-trigger" onclick="cfdOpen('gsf-desc')"><span class="cfd-trigger-text">Filtrar...</span><span class="cfd-arrow">▾</span></button><div class="cfd-drop"><div class="cfd-search-wrap"><input type="text" placeholder="Buscar..." oninput="cfdRebuild('gsf-desc')"></div><div class="cfd-list"></div></div></div></th>
+    <th style="padding:4px 8px"><div id="cfd-gsf-concepto" class="cfd-wrap" data-table="gastos" data-field="concepto"><button class="cfd-trigger" onclick="cfdOpen('gsf-concepto')"><span class="cfd-trigger-text">Filtrar...</span><span class="cfd-arrow">▾</span></button><div class="cfd-drop"><div class="cfd-search-wrap"><input type="text" placeholder="Buscar..." oninput="cfdRebuild('gsf-concepto')"></div><div class="cfd-list"></div></div></div></th>
+    <th style="padding:4px 8px"><div id="cfd-gsf-rec" class="cfd-wrap" data-table="gastos" data-field="rec"><button class="cfd-trigger" onclick="cfdOpen('gsf-rec')"><span class="cfd-trigger-text">Filtrar...</span><span class="cfd-arrow">▾</span></button><div class="cfd-drop"><div class="cfd-search-wrap"><input type="text" placeholder="Buscar..." oninput="cfdRebuild('gsf-rec')"></div><div class="cfd-list"></div></div></div></th>
+    <th style="padding:4px 8px"><div id="cfd-gsf-monto" class="cfd-wrap" data-table="gastos" data-field="monto"><button class="cfd-trigger" onclick="cfdOpen('gsf-monto')"><span class="cfd-trigger-text">Filtrar...</span><span class="cfd-arrow">▾</span></button><div class="cfd-drop"><div class="cfd-search-wrap"><input type="text" placeholder="Buscar..." oninput="cfdRebuild('gsf-monto')"></div><div class="cfd-list"></div></div></div></th>
     <th style="padding:4px 8px"></th>
-    <th style="padding:4px 8px"><select onchange="renderGastos()" id="gsf-estado" style="width:100%;font-size:11px;padding:3px 4px;border:0.5px solid var(--border-md);border-radius:4px;background:var(--bg-primary);color:var(--text-primary);outline:none"><option value="">Todos</option><option value="pendiente">Pendiente</option><option value="pagado">Pagado</option></select></th>
+    <th style="padding:4px 8px"><div id="cfd-gsf-estado" class="cfd-wrap" data-table="gastos" data-field="estado"><button class="cfd-trigger" onclick="cfdOpen('gsf-estado')"><span class="cfd-trigger-text">Filtrar...</span><span class="cfd-arrow">▾</span></button><div class="cfd-drop"><div class="cfd-search-wrap"><input type="text" placeholder="Buscar..." oninput="cfdRebuild('gsf-estado')"></div><div class="cfd-list"></div></div></div></th>
     <th style="padding:4px 8px"></th>
     <th></th><th></th>
   </tr>
@@ -2274,6 +2288,57 @@ function saveBsDesc(section, i, value) {
   renderBalance();
 }
 
+// ─── Column Filter Dropdowns ─────────────────────────────────────
+const cfdState = {};
+function cfdVal(id) { return cfdState[id] || ''; }
+
+function cfdOpen(id) {
+  const wrap = document.getElementById('cfd-' + id);
+  if (!wrap) return;
+  const drop = wrap.querySelector('.cfd-drop');
+  const isOpen = drop.classList.contains('open');
+  document.querySelectorAll('.cfd-drop.open').forEach(d => d.classList.remove('open'));
+  if (!isOpen) {
+    drop.classList.add('open');
+    const si = wrap.querySelector('.cfd-search-wrap input');
+    if (si) { si.value = ''; si.focus(); }
+    cfdRebuild(id);
+  }
+}
+
+function cfdRebuild(id) {
+  const wrap = document.getElementById('cfd-' + id);
+  if (!wrap) return;
+  const field = wrap.dataset.field;
+  const table = wrap.dataset.table;
+  const si = wrap.querySelector('.cfd-search-wrap input');
+  const q = (si?.value || '').toLowerCase();
+  const data = table === 'cobros' ? state.cobros : state.gastos;
+  let vals = [...new Set(data.map(r => r[field]).filter(v => v !== null && v !== undefined && v !== ''))].sort((a,b) => String(a).localeCompare(String(b), 'es'));
+  if (q) vals = vals.filter(v => String(v).toLowerCase().startsWith(q));
+  const cur = cfdState[id] || '';
+  const list = wrap.querySelector('.cfd-list');
+  list.innerHTML = `<div class="cfd-item${!cur ? ' cfd-sel' : ''}" onclick="cfdPick('${id}','')">Todos</div>`
+    + (vals.length ? vals.map(v => `<div class="cfd-item${String(v)===cur ? ' cfd-sel' : ''}" onclick="cfdPick('${id}',${JSON.stringify(String(v))})">${v}</div>`).join('') : '<div class="cfd-empty">Sin resultados</div>');
+}
+
+function cfdPick(id, value) {
+  cfdState[id] = value;
+  const wrap = document.getElementById('cfd-' + id);
+  if (!wrap) return;
+  const t = wrap.querySelector('.cfd-trigger-text');
+  t.textContent = value || 'Filtrar...';
+  t.classList.toggle('cfd-active', !!value);
+  wrap.querySelector('.cfd-drop').classList.remove('open');
+  const table = wrap.dataset.table;
+  if (table === 'cobros') renderCobros();
+  else renderGastos();
+}
+
+document.addEventListener('click', e => {
+  if (!e.target.closest('[id^="cfd-"]')) document.querySelectorAll('.cfd-drop.open').forEach(d => d.classList.remove('open'));
+});
+
 // ─── Period filter for Cobros & Gastos pages ─────────────────────
 let selectedCbPeriods = new Set();
 let selectedGsPeriods = new Set();
@@ -2522,18 +2587,18 @@ function getFilteredCobros() {
   let cobros = selectedCbPeriods.size > 0
     ? state.cobros.filter(c => c.fecha && selectedCbPeriods.has(c.fecha.substring(0,7)))
     : state.cobros;
-  const cbfFecha   = (document.getElementById('cbf-fecha')?.value   || '').toLowerCase();
-  const cbfDesc    = (document.getElementById('cbf-desc')?.value    || '').toLowerCase();
-  const cbfClient  = (document.getElementById('cbf-client')?.value  || '').toLowerCase();
-  const cbfMonto   = (document.getElementById('cbf-monto')?.value   || '').toLowerCase();
-  const cbfEstado  = (document.getElementById('cbf-estado')?.value  || '');
-  const cbfNotas   = (document.getElementById('cbf-notas')?.value   || '').toLowerCase();
-  if(cbfFecha)  cobros = cobros.filter(c => (c.fecha||'').toLowerCase().includes(cbfFecha));
-  if(cbfDesc)   cobros = cobros.filter(c => (c.desc||'').toLowerCase().includes(cbfDesc));
-  if(cbfClient) cobros = cobros.filter(c => (c.client||'').toLowerCase().includes(cbfClient));
-  if(cbfMonto)  cobros = cobros.filter(c => String(c.monto||'').includes(cbfMonto));
-  if(cbfEstado) cobros = cobros.filter(c => c.estado === cbfEstado);
-  if(cbfNotas)  cobros = cobros.filter(c => (c.notas||'').toLowerCase().includes(cbfNotas));
+  const cbfFecha   = cfdVal('cbf-fecha');
+  const cbfDesc    = cfdVal('cbf-desc');
+  const cbfClient  = cfdVal('cbf-client');
+  const cbfMonto   = cfdVal('cbf-monto');
+  const cbfEstado  = cfdVal('cbf-estado');
+  const cbfNotas   = cfdVal('cbf-notas');
+  if(cbfFecha)   cobros = cobros.filter(c => String(c.fecha||'') === cbfFecha);
+  if(cbfDesc)    cobros = cobros.filter(c => String(c.desc||'') === cbfDesc);
+  if(cbfClient)  cobros = cobros.filter(c => String(c.client||'') === cbfClient);
+  if(cbfMonto)   cobros = cobros.filter(c => String(c.monto||'') === cbfMonto);
+  if(cbfEstado)  cobros = cobros.filter(c => c.estado === cbfEstado);
+  if(cbfNotas)   cobros = cobros.filter(c => String(c.notas||'') === cbfNotas);
   return cobros;
 }
 
@@ -2806,18 +2871,18 @@ function getFilteredGastos() {
   let gastos = selectedGsPeriods.size > 0
     ? state.gastos.filter(g => g.fecha && selectedGsPeriods.has(g.fecha.substring(0,7)))
     : state.gastos;
-  const gsfFecha   = (document.getElementById('gsf-fecha')?.value    || '').toLowerCase();
-  const gsfDesc    = (document.getElementById('gsf-desc')?.value     || '').toLowerCase();
-  const gsfConc    = (document.getElementById('gsf-concepto')?.value || '').toLowerCase();
-  const gsfRec     = (document.getElementById('gsf-rec')?.value      || '');
-  const gsfMonto   = (document.getElementById('gsf-monto')?.value    || '').toLowerCase();
-  const gsfEstado  = (document.getElementById('gsf-estado')?.value   || '');
-  if(gsfFecha)  gastos = gastos.filter(g => (g.fecha||'').toLowerCase().includes(gsfFecha));
-  if(gsfDesc)   gastos = gastos.filter(g => (g.desc||'').toLowerCase().includes(gsfDesc));
-  if(gsfConc)   gastos = gastos.filter(g => (g.concepto||'').toLowerCase().includes(gsfConc));
-  if(gsfRec)    gastos = gastos.filter(g => g.rec === gsfRec);
-  if(gsfMonto)  gastos = gastos.filter(g => String(g.monto||'').includes(gsfMonto));
-  if(gsfEstado) gastos = gastos.filter(g => g.estado === gsfEstado);
+  const gsfFecha   = cfdVal('gsf-fecha');
+  const gsfDesc    = cfdVal('gsf-desc');
+  const gsfConc    = cfdVal('gsf-concepto');
+  const gsfRec     = cfdVal('gsf-rec');
+  const gsfMonto   = cfdVal('gsf-monto');
+  const gsfEstado  = cfdVal('gsf-estado');
+  if(gsfFecha)   gastos = gastos.filter(g => String(g.fecha||'') === gsfFecha);
+  if(gsfDesc)    gastos = gastos.filter(g => String(g.desc||'') === gsfDesc);
+  if(gsfConc)    gastos = gastos.filter(g => String(g.concepto||'') === gsfConc);
+  if(gsfRec)     gastos = gastos.filter(g => g.rec === gsfRec);
+  if(gsfMonto)   gastos = gastos.filter(g => String(g.monto||'') === gsfMonto);
+  if(gsfEstado)  gastos = gastos.filter(g => g.estado === gsfEstado);
   return gastos;
 }
 
