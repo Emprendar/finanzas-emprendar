@@ -115,16 +115,18 @@
   .cfd-trigger-text{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text-tertiary);font-style:italic}
   .cfd-trigger-text.cfd-active{color:var(--text-primary);font-style:normal;font-weight:500}
   .cfd-arrow{font-size:9px;color:var(--text-tertiary);flex-shrink:0}
-  .cfd-drop{display:none;position:absolute;top:calc(100% + 4px);left:0;z-index:300;min-width:220px;max-width:400px;background:var(--bg-primary);border:0.5px solid var(--border-md);border-radius:8px;box-shadow:0 6px 20px rgba(0,0,0,0.16);overflow:hidden}
+  .cfd-drop{display:none;position:absolute;top:calc(100% + 4px);left:0;z-index:300;min-width:200px;max-width:320px;background:var(--bg-primary);border:0.5px solid var(--border-md);border-radius:8px;box-shadow:0 6px 20px rgba(0,0,0,0.16);overflow:hidden}
   .cfd-drop.open{display:flex;flex-direction:column}
   .cfd-search-wrap{padding:8px 10px;border-bottom:0.5px solid var(--border)}
   .cfd-search-wrap input{width:100%;border:none;outline:none;font-size:13px;background:transparent;color:var(--text-primary)}
-  .cfd-list{overflow-y:auto;max-height:260px}
-  .cfd-item{padding:8px 14px;font-size:13px;cursor:pointer;color:var(--text-primary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:flex;align-items:center;gap:8px}
+  .cfd-list{overflow-y:auto;max-height:240px}
+  .cfd-item{padding:7px 12px;font-size:13px;cursor:pointer;color:var(--text-primary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .cfd-item:hover{background:var(--bg-secondary)}
   .cfd-item.cfd-sel{background:var(--bg-tertiary)}
-  .cfd-empty{padding:10px 14px;font-size:13px;color:var(--text-tertiary);font-style:italic}
-  .cfd-chk{font-size:15px;line-height:1;flex-shrink:0}
+  .cfd-empty{padding:10px 12px;font-size:13px;color:var(--text-tertiary);font-style:italic}
+  .cfd-chk{margin-right:6px;font-size:13px}
+  .cfd-clear{margin-left:4px;font-size:11px;color:var(--text-tertiary);cursor:pointer;padding:1px 4px;border-radius:3px;flex-shrink:0}
+  .cfd-clear:hover{background:var(--bg-tertiary);color:var(--text-primary)}
 </style>
 </head>
 <body>
@@ -2360,9 +2362,22 @@ function cfdUpdateTrigger(id) {
   if (!wrap) return;
   const t = wrap.querySelector('.cfd-trigger-text');
   const s = cfdState[id];
-  if (!s || s.size === 0) { t.textContent = 'Filtrar...'; t.classList.remove('cfd-active'); }
-  else if (s.size === 1) { t.textContent = [...s][0]; t.classList.add('cfd-active'); }
-  else { t.textContent = s.size + ' seleccionados'; t.classList.add('cfd-active'); }
+  let clearBtn = wrap.querySelector('.cfd-clear');
+  if (!s || s.size === 0) {
+    t.textContent = 'Filtrar...';
+    t.classList.remove('cfd-active');
+    if (clearBtn) clearBtn.remove();
+  } else {
+    t.textContent = s.size === 1 ? [...s][0] : s.size + ' seleccionados';
+    t.classList.add('cfd-active');
+    if (!clearBtn) {
+      clearBtn = document.createElement('span');
+      clearBtn.className = 'cfd-clear';
+      clearBtn.textContent = '✕';
+      clearBtn.onclick = e => { e.stopPropagation(); cfdPickAll(id); };
+      wrap.querySelector('.cfd-trigger').appendChild(clearBtn);
+    }
+  }
 }
 
 document.addEventListener('click', e => {
