@@ -2802,16 +2802,10 @@ function saveGasto() {
   });
 }
 
-function renderGastos() {
-  const tbody = document.getElementById('gastos-table');
-  if(!tbody) return;
-
-  // Filter by selected periods
+function getFilteredGastos() {
   let gastos = selectedGsPeriods.size > 0
     ? state.gastos.filter(g => g.fecha && selectedGsPeriods.has(g.fecha.substring(0,7)))
     : state.gastos;
-
-  // Per-column filters
   const gsfFecha   = (document.getElementById('gsf-fecha')?.value    || '').toLowerCase();
   const gsfDesc    = (document.getElementById('gsf-desc')?.value     || '').toLowerCase();
   const gsfConc    = (document.getElementById('gsf-concepto')?.value || '').toLowerCase();
@@ -2824,6 +2818,14 @@ function renderGastos() {
   if(gsfRec)    gastos = gastos.filter(g => g.rec === gsfRec);
   if(gsfMonto)  gastos = gastos.filter(g => String(g.monto||'').includes(gsfMonto));
   if(gsfEstado) gastos = gastos.filter(g => g.estado === gsfEstado);
+  return gastos;
+}
+
+function renderGastos() {
+  const tbody = document.getElementById('gastos-table');
+  if(!tbody) return;
+
+  let gastos = getFilteredGastos();
 
   if(!gastos.length) {
     tbody.innerHTML = `<tr><td colspan="9" style="text-align:center;padding:32px 16px;color:var(--text-tertiary);font-size:12px">${selectedGsPeriods.size>0?'No hay gastos para los períodos seleccionados.':'Todavía no registraste ningún gasto — usá el botón <strong style="color:var(--text-secondary)">+ Gasto/Pago</strong> para empezar.'}</td></tr>`;
@@ -3777,7 +3779,7 @@ function exportXLS(sheet) {
   }
 
   if(sheet === 'gastos' || sheet === 'all') {
-    const gastosFilt = selectedGsPeriods.size > 0 ? state.gastos.filter(g => g.fecha && selectedGsPeriods.has(g.fecha.substring(0,7))) : state.gastos;
+    const gastosFilt = getFilteredGastos();
     const rows = [['Fecha','Descripción','Concepto','Recurrencia','Monto ARS','Monto USD','Estado','Fecha pago','Notas']];
     gastosFilt.forEach(g => rows.push([
       fmtDate(g.fecha), g.desc, g.concepto || '', g.rec, g.monto, g.montoUsd || '',
@@ -3891,9 +3893,10 @@ function exportPDF(sheet) {
     </tbody></table>`;
 
   } else if(sheet === 'gastos') {
-    title = 'Gastos & Pagos';
+    title = 'Gastos & Pagos' + (selectedGsPeriods.size > 0 ? ' — ' + [...selectedGsPeriods].map(monthLabel).join(', ') : '');
+    const gastosFiltP = getFilteredGastos();
     html = `<table><thead><tr><th>Fecha</th><th>Descripción</th><th>Concepto</th><th>Recurrencia</th><th>Monto</th><th>USD</th><th>Estado</th><th>Fecha pago</th></tr></thead><tbody>
-      ${state.gastos.map(g => `<tr>
+      ${gastosFiltP.map(g => `<tr>
         <td>${g.fecha||''}</td><td>${g.desc||''}</td><td>${g.concepto||''}</td><td>${g.rec||''}</td>
         <td style="text-align:right">${fmt$(g.monto)}</td>
         <td style="text-align:right">${g.montoUsd ? 'U$S '+g.montoUsd.toLocaleString('es-AR') : '—'}</td>
