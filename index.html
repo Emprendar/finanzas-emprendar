@@ -1767,19 +1767,23 @@ function renderPnlTable() {
   const periods = [...pnlSelected].sort();
 
   // KPI cards
-  const now = new Date();
-  const kpiData = periods.length === 1 ? getPnlDataForPeriod(periods[0]) : null;
   const kpis = document.getElementById('pnl-kpis');
   if(kpis) {
-    const ventas = kpiData ? kpiData.ventas : periods.reduce((s,p)=>s+getPnlDataForPeriod(p).ventas,0)||state.cobros.reduce((s,c)=>s+(c.monto||0),0);
-    const costos = kpiData ? kpiData.totalCostos : periods.reduce((s,p)=>s+getPnlDataForPeriod(p).totalCostos,0)||state.gastos.reduce((s,g)=>s+(g.monto||0),0);
-    const resultado = ventas - costos;
-    const margen = ventas > 0 ? (resultado/ventas*100).toFixed(1)+'%' : '—';
+    const ventasTotal = periods.length > 0
+      ? periods.reduce((s,p) => s + getPnlDataForPeriod(p).ventas, 0)
+      : state.cobros.reduce((s,c) => s + (c.monto||0), 0);
+    const costosTotal = periods.length > 0
+      ? periods.reduce((s,p) => s + getPnlDataForPeriod(p).totalCostos, 0)
+      : state.gastos.reduce((s,g) => s + (g.monto||0), 0);
+    const cantVentas = periods.length > 0
+      ? state.cobros.filter(c => c.fecha && periods.some(p => c.fecha.startsWith(p))).length
+      : state.cobros.length;
+    const ticketProm = cantVentas > 0 ? ventasTotal / cantVentas : 0;
+    const costoProm  = cantVentas > 0 ? costosTotal  / cantVentas : 0;
     kpis.innerHTML = [
-      { label:'Ventas', val:fmtPesos(ventas), cls:'' },
-      { label:'Total costos & gastos', val:fmtPesos(costos), cls:'neg' },
-      { label:'Resultado neto', val:fmtPesos(resultado), sub:margen+' margen neto', cls:resultado>=0?'pos':'neg' },
-      { label:'Períodos seleccionados', val:periods.length||'—', sub:periods.length?'':'Mostrando totales', cls:'' },
+      { label:'Ticket Promedio', val: cantVentas > 0 ? fmtPesos(ticketProm) : '—', sub:'ventas / cantidad de ventas', cls:'' },
+      { label:'Costo Promedio', val: cantVentas > 0 ? fmtPesos(costoProm) : '—', sub:'costos totales / cantidad de ventas', cls:'neg' },
+      { label:'Cantidad de ventas', val: cantVentas, sub: periods.length > 0 ? 'en el período seleccionado' : 'total', cls:'' },
     ].map(k=>`<div class="metric-card" style="padding:12px 14px">
       <div class="metric-label" style="font-size:11px">${k.label}</div>
       <div class="metric-value ${k.cls}" style="font-size:18px">${k.val}</div>
