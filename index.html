@@ -169,6 +169,8 @@
     <div class="nav-item" onclick="showPage('balance')">Balance Sheet</div>
     <div class="nav-section">Fiscal</div>
     <div class="nav-item" onclick="showPage('monotributo')">Monotributo</div>
+    <div class="nav-section">Gestión</div>
+    <div class="nav-item" onclick="showPage('informe')">Informe de Gestión</div>
   </nav>
 
   <div class="main" id="main-content">
@@ -190,6 +192,9 @@
           </optgroup>
           <optgroup label="Fiscal">
             <option value="monotributo">Monotributo</option>
+          </optgroup>
+          <optgroup label="Gestión">
+            <option value="informe">Informe de Gestión</option>
           </optgroup>
         </select>
       </div>
@@ -866,6 +871,19 @@
         </div>
       </div>
     </div>
+
+    <!-- INFORME DE GESTIÓN -->
+    <div id="page-informe" class="content" style="display:none">
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;flex-wrap:wrap">
+        <span style="font-size:13px;font-weight:500;color:var(--text-secondary)">Período:</span>
+        <select id="informe-month-sel" onchange="setInformeMonth(this.value)"
+          style="font-size:13px;padding:6px 14px;border:1px solid var(--border-md);border-radius:6px;background:var(--bg-primary);color:var(--text-primary);cursor:pointer;outline:none">
+        </select>
+        <span style="font-size:11px;color:var(--text-tertiary)">Informe generado automáticamente en base a los datos cargados</span>
+      </div>
+      <div id="informe-content"></div>
+    </div>
+
   </div>
 </div>
 <div class="toast" id="toast"></div>
@@ -977,8 +995,8 @@ const state_pagos = [
 state.pagos = state_pagos;
 
 const monoLimits = { D:22934610, E:26977793, F:33809379, G:40431835, H:61344853 };
-const pages = ['dashboard','cobros','gastos','flujo','pnl','balance','monotributo'];
-const pageTitles = { dashboard:'Dashboard', cobros:'Ventas & Cobranzas', gastos:'Gastos & Pagos', flujo:'Cashflow', monotributo:'Monotributo', pnl:'P&L', balance:'Balance Sheet' };
+const pages = ['dashboard','cobros','gastos','flujo','pnl','balance','monotributo','informe'];
+const pageTitles = { dashboard:'Dashboard', cobros:'Ventas & Cobranzas', gastos:'Gastos & Pagos', flujo:'Cashflow', monotributo:'Monotributo', pnl:'P&L', balance:'Balance Sheet', informe:'Informe de Gestión' };
 
 function showPage(name) {
   pages.forEach(p => { const el=document.getElementById('page-'+p); if(el) el.style.display = p===name ? '' : 'none'; });
@@ -992,6 +1010,7 @@ function showPage(name) {
   if(name==='pnl') renderPnl();
   if(name==='balance') renderBalance();
   if(name==='monotributo') renderMonotributo();
+  if(name==='informe') renderInforme();
 }
 
 // ─── Dashboard: calcula KPIs desde state.cobros y state.gastos ──────
@@ -4169,6 +4188,303 @@ function fmtDate(s) { if(!s)return''; const [y,m,d]=s.split('-'); return `${d}/$
 function toast(msg) {
   const t=document.getElementById('toast'); t.textContent=msg; t.classList.add('show');
   setTimeout(()=>t.classList.remove('show'),2500);
+}
+
+// ─── Informe de Gestión ───────────────────────────────────────────
+let informeMonth = null;
+const INF_MONTHS = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+
+function infFmt(ym) {
+  return INF_MONTHS[parseInt(ym.substring(5,7))-1] + ' ' + ym.substring(0,4);
+}
+
+function infPrev(ym) {
+  const y = parseInt(ym.substring(0,4)), m = parseInt(ym.substring(5,7));
+  return m === 1 ? (y-1) + '-12' : y + '-' + String(m-1).padStart(2,'0');
+}
+
+function infGetPnl(ym) {
+  const cobros = state.cobros.filter(c => c.fecha && c.fecha.startsWith(ym));
+  const gastos = state.gastos.filter(g => g.fecha && g.fecha.startsWith(ym));
+  const ventas = cobros.reduce((s,c) => s+(c.monto||0), 0);
+  const costos = {};
+  PNL_CONCEPTOS.forEach(c => costos[c] = 0);
+  gastos.forEach(g => { if(PNL_CONCEPTOS.includes(g.concepto)) costos[g.concepto] += (g.monto||0); });
+  const totalCostos = Object.values(costos).reduce((s,v) => s+v, 0);
+  const resultado = ventas - totalCostos;
+  return { ventas, costos, totalCostos, resultado, margen: ventas > 0 ? resultado/ventas : null, cantVentas: cobros.length };
+}
+
+function infGetCf(ym) {
+  const ingresos = state.cobros.filter(c => c.estado==='cobrado' && c.fechaCobro && c.fechaCobro.startsWith(ym)).reduce((s,c) => s+(c.monto||0), 0);
+  const egresos  = state.gastos.filter(g => g.estado==='pagado'  && g.fechaPago  && g.fechaPago.startsWith(ym)).reduce((s,g) => s+(g.monto||0), 0);
+  return { ingresos, egresos, flujo: ingresos - egresos };
+}
+
+function renderInforme() {
+  const seen = new Set();
+  const months = [];
+  [...state.cobros.map(c=>c.fecha), ...state.gastos.map(g=>g.fecha)].filter(Boolean).forEach(d => {
+    const ym = d.substring(0,7);
+    if(!seen.has(ym)) { seen.add(ym); months.push(ym); }
+  });
+  months.sort().reverse();
+  const now = new Date();
+  const cur = now.getFullYear() + '-' + String(now.getMonth()+1).padStart(2,'0');
+  if(!months.includes(cur)) months.unshift(cur);
+  if(!informeMonth || !months.includes(informeMonth)) informeMonth = months[0];
+  const sel = document.getElementById('informe-month-sel');
+  if(sel) sel.innerHTML = months.map(m => `<option value="${m}"${m===informeMonth?' selected':''}>${infFmt(m)}</option>`).join('');
+  renderInformeContent();
+}
+
+function setInformeMonth(ym) { informeMonth = ym; renderInformeContent(); }
+
+function renderInformeContent() {
+  const wrap = document.getElementById('informe-content');
+  if(!wrap || !informeMonth) return;
+  const ym = informeMonth;
+  const prev = infPrev(ym);
+  const pnl  = infGetPnl(ym),  pnlP = infGetPnl(prev);
+  const cf   = infGetCf(ym),   cfP  = infGetCf(prev);
+
+  const f = v => fmt(Math.abs(Math.round(v)));
+  const pct = (a,b) => b===0 ? null : ((a-b)/Math.abs(b)*100);
+  const deltaHtml = (a, b, lowerIsBetter) => {
+    const p = pct(a,b);
+    if(p===null) return '';
+    if(Math.abs(p) < 1) return `<span style="font-size:11px;color:var(--text-tertiary)">= igual</span>`;
+    const up = p > 0;
+    const good = lowerIsBetter ? !up : up;
+    const col = good ? 'var(--success-text)' : 'var(--danger-text)';
+    return `<span style="font-size:11px;color:${col}">${up?'↑':'↓'} ${Math.abs(Math.round(p))}%</span>`;
+  };
+
+  // ── Insights ──────────────────────────────────────────────────
+  const ip = [];
+  if(pnlP.ventas > 0) {
+    const p = Math.round(pct(pnl.ventas, pnlP.ventas));
+    ip.push(p > 0 ? `Las ventas crecieron <b>${p}%</b> respecto a ${infFmt(prev)}.`
+           : p < 0 ? `Las ventas cayeron <b>${Math.abs(p)}%</b> respecto a ${infFmt(prev)}.`
+           : `Las ventas se mantuvieron estables respecto a ${infFmt(prev)}.`);
+  }
+  if(pnl.ventas > 0) {
+    ip.push(`Los costos representaron el <b>${Math.round(pnl.totalCostos/pnl.ventas*100)}%</b> de las ventas.`);
+    if(pnl.margen !== null) {
+      const mp = Math.round(pnl.margen*100);
+      ip.push(`Margen neto: <b>${mp}%</b>${pnlP.margen!==null ? ' (mes anterior: '+Math.round(pnlP.margen*100)+'%)' : ''}.`);
+    }
+  }
+  if(pnl.resultado < 0) ip.push(`<span style="color:var(--danger-text)">⚠ Resultado negativo: costos superaron ventas por ${f(pnl.resultado)}.</span>`);
+
+  const ic = [];
+  if(cfP.ingresos > 0) {
+    const p = Math.round(pct(cf.ingresos, cfP.ingresos));
+    ic.push(p > 0 ? `Las cobranzas subieron <b>${p}%</b> vs ${infFmt(prev)}.`
+           : p < 0 ? `Las cobranzas cayeron <b>${Math.abs(p)}%</b> vs ${infFmt(prev)}.`
+           : `Las cobranzas se mantuvieron estables.`);
+  }
+  if(cf.flujo >= 0) ic.push(`Flujo positivo: el período cerró con superávit de ${f(cf.flujo)}.`);
+  else ic.push(`<span style="color:var(--danger-text)">⚠ Flujo negativo: egresos superaron ingresos por ${f(cf.flujo)}.</span>`);
+  if(cf.egresos > 0 && cf.ingresos > 0)
+    ic.push(`Los ingresos cubrieron el <b>${Math.round(cf.ingresos/cf.egresos*100)}%</b> de los egresos.`);
+
+  // ── Deudores ─────────────────────────────────────────────────
+  const today = new Date();
+  const dias = d => d ? Math.floor((today - new Date(d)) / 86400000) : null;
+  const deudores = state.cobros.filter(c => c.estado !== 'cobrado').sort((a,b)=>(a.fecha||'').localeCompare(b.fecha||''));
+  const deudTotal = deudores.reduce((s,c) => s+(c.monto||0), 0);
+
+  // ── Acreedores ────────────────────────────────────────────────
+  const acreedores = state.gastos.filter(g => g.estado !== 'pagado').sort((a,b)=>(a.fecha||'').localeCompare(b.fecha||''));
+  const acrTotal = acreedores.reduce((s,g) => s+(g.monto||0), 0);
+
+  // ── Evolución por concepto (6 meses) ─────────────────────────
+  const evoMs = [];
+  for(let i=5; i>=0; i--) {
+    let y = parseInt(ym.substring(0,4)), m = parseInt(ym.substring(5,7)) - i;
+    while(m <= 0) { m += 12; y--; }
+    evoMs.push(y + '-' + String(m).padStart(2,'0'));
+  }
+  const evoCosts = {};
+  PNL_CONCEPTOS.forEach(c => {
+    evoCosts[c] = evoMs.map(em => state.gastos.filter(g => g.fecha && g.fecha.startsWith(em) && g.concepto === c).reduce((s,g)=>s+(g.monto||0),0));
+  });
+
+  // ── Gastos inusuales ──────────────────────────────────────────
+  const outliers = [];
+  PNL_CONCEPTOS.filter(c => c !== 'Extraordinarios').forEach(c => {
+    const curV = evoCosts[c][5];
+    if(curV === 0) return;
+    const prevVs = evoCosts[c].slice(0,5).filter(v => v > 0);
+    if(prevVs.length === 0) {
+      outliers.push({ c, cur: curV, avg: 0, diff: curV, pct: null, reason: 'Sin historial en los últimos 5 meses' });
+      return;
+    }
+    const avg = prevVs.reduce((s,v)=>s+v,0) / prevVs.length;
+    if(curV > avg * 1.4) {
+      const p = Math.round((curV-avg)/avg*100);
+      outliers.push({ c, cur: curV, avg, diff: curV-avg, pct: p, reason: `${p}% por encima del promedio` });
+    }
+  });
+  outliers.sort((a,b) => (b.pct||999)-(a.pct||999));
+
+  // ── Helpers ───────────────────────────────────────────────────
+  const card = (title, body) =>
+    `<div style="background:var(--bg-primary);border:1px solid var(--border-md);border-radius:8px;padding:20px">
+      <div style="font-size:13px;font-weight:600;color:var(--text-primary);margin-bottom:16px">${title}</div>
+      ${body}
+    </div>`;
+
+  const insightBox = items => !items.length ? '' :
+    `<div style="background:var(--bg-secondary);border-radius:6px;padding:12px 14px;margin-top:14px">
+      <div style="font-size:10px;font-weight:600;color:var(--text-tertiary);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:8px">Insights</div>
+      ${items.map(t=>`<div style="font-size:12px;color:var(--text-secondary);line-height:1.7;margin-bottom:2px">· ${t}</div>`).join('')}
+    </div>`;
+
+  const metRow = (label, val, dHtml, isNeg, bold) =>
+    `<div style="display:flex;align-items:center;padding:7px 0;border-bottom:0.5px solid var(--border-md)">
+      <span style="font-size:12px;color:var(--text-secondary);flex:1">${label}</span>
+      <span style="font-size:${bold?'14':'12'}px;font-weight:${bold?600:400};font-variant-numeric:tabular-nums;color:${isNeg?'var(--danger-text)':val!==0?'var(--text-primary)':'var(--text-tertiary)'};margin-right:10px">${val===0?'—':f(val)}</span>
+      ${dHtml}
+    </div>`;
+
+  const thSt = 'padding:8px 10px;text-align:left;font-size:11px;font-weight:500;color:var(--text-secondary);border-bottom:0.5px solid var(--border-md);white-space:nowrap';
+  const thR  = thSt + ';text-align:right';
+  const thC  = thSt + ';text-align:center';
+
+  const diasBadge = d => {
+    if(d===null) return '—';
+    const col = d>30?'var(--danger-text)':d>14?'var(--warning-text)':'var(--text-secondary)';
+    return `<span style="color:${col};font-weight:500">${d}d</span>`;
+  };
+
+  // ── P&L card ─────────────────────────────────────────────────
+  const pnlCard = card('P&L — ' + infFmt(ym),
+    metRow('Ventas', pnl.ventas, deltaHtml(pnl.ventas, pnlP.ventas, false)) +
+    metRow('Costos', pnl.totalCostos, deltaHtml(pnl.totalCostos, pnlP.totalCostos, true)) +
+    metRow('Resultado neto', pnl.resultado, deltaHtml(pnl.resultado, pnlP.resultado, false), pnl.resultado<0, true) +
+    insightBox(ip)
+  );
+
+  // ── CF card ───────────────────────────────────────────────────
+  const cfCard = card('Cashflow — ' + infFmt(ym),
+    metRow('Ingresos cobrados', cf.ingresos, deltaHtml(cf.ingresos, cfP.ingresos, false)) +
+    metRow('Egresos pagados', cf.egresos, deltaHtml(cf.egresos, cfP.egresos, true)) +
+    metRow('Flujo neto', cf.flujo, deltaHtml(cf.flujo, cfP.flujo, false), cf.flujo<0, true) +
+    insightBox(ic)
+  );
+
+  // ── Deudores table ────────────────────────────────────────────
+  const deudTable = deudores.length === 0
+    ? `<div style="text-align:center;padding:20px;color:var(--text-tertiary);font-size:13px">No hay cobros pendientes ✓</div>`
+    : `<table style="width:100%;border-collapse:collapse;font-size:12px">
+        <thead><tr style="background:var(--bg-secondary)">
+          <th style="${thSt}">Cliente</th><th style="${thSt}">Descripción</th>
+          <th style="${thR}">Monto</th><th style="${thC}">Fecha</th><th style="${thC}">Días</th>
+        </tr></thead><tbody>
+        ${deudores.map(c=>`<tr onmouseover="this.style.background='var(--bg-secondary)'" onmouseout="this.style.background=''">
+          <td style="padding:6px 10px">${c.client||'—'}</td>
+          <td style="padding:6px 10px;color:var(--text-secondary)">${c.desc||'—'}</td>
+          <td style="padding:6px 10px;text-align:right;font-variant-numeric:tabular-nums">${f(c.monto||0)}</td>
+          <td style="padding:6px 10px;text-align:center;color:var(--text-secondary)">${c.fecha||'—'}</td>
+          <td style="padding:6px 10px;text-align:center">${diasBadge(dias(c.fecha))}</td>
+        </tr>`).join('')}
+        </tbody><tfoot><tr style="border-top:1px solid var(--border-md);background:var(--bg-secondary)">
+          <td colspan="2" style="padding:7px 10px;font-weight:500">Total adeudado</td>
+          <td style="padding:7px 10px;text-align:right;font-weight:600;color:var(--danger-text)">${f(deudTotal)}</td>
+          <td colspan="2"></td>
+        </tr></tfoot></table>`;
+
+  // ── Acreedores table ──────────────────────────────────────────
+  const acrTable = acreedores.length === 0
+    ? `<div style="text-align:center;padding:20px;color:var(--text-tertiary);font-size:13px">No hay gastos pendientes ✓</div>`
+    : `<table style="width:100%;border-collapse:collapse;font-size:12px">
+        <thead><tr style="background:var(--bg-secondary)">
+          <th style="${thSt}">Concepto</th><th style="${thSt}">Descripción</th>
+          <th style="${thR}">Monto</th><th style="${thC}">Fecha</th><th style="${thC}">Días</th>
+        </tr></thead><tbody>
+        ${acreedores.map(g=>`<tr onmouseover="this.style.background='var(--bg-secondary)'" onmouseout="this.style.background=''">
+          <td style="padding:6px 10px">${g.concepto||'—'}</td>
+          <td style="padding:6px 10px;color:var(--text-secondary)">${g.desc||'—'}</td>
+          <td style="padding:6px 10px;text-align:right;font-variant-numeric:tabular-nums">${f(g.monto||0)}</td>
+          <td style="padding:6px 10px;text-align:center;color:var(--text-secondary)">${g.fecha||'—'}</td>
+          <td style="padding:6px 10px;text-align:center">${diasBadge(dias(g.fecha))}</td>
+        </tr>`).join('')}
+        </tbody><tfoot><tr style="border-top:1px solid var(--border-md);background:var(--bg-secondary)">
+          <td colspan="2" style="padding:7px 10px;font-weight:500">Total a pagar</td>
+          <td style="padding:7px 10px;text-align:right;font-weight:600;color:var(--danger-text)">${f(acrTotal)}</td>
+          <td colspan="2"></td>
+        </tr></tfoot></table>`;
+
+  // ── Evolución por concepto ────────────────────────────────────
+  const evoTable = `<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12px">
+    <thead><tr style="background:var(--bg-secondary)">
+      <th style="${thSt};min-width:190px">Concepto</th>
+      ${evoMs.map((em,i)=>`<th style="${thR}${i===5?';border-left:2px solid var(--border-md);color:var(--text-primary)':''}">${i===5?'<b>':''}${INF_MONTHS[parseInt(em.substring(5,7))-1].substring(0,3)}<br><span style="font-weight:400;font-size:10px">${em.substring(0,4)}</span>${i===5?'</b>':''}</th>`).join('')}
+      <th style="${thC}">Var.</th>
+    </tr></thead><tbody>
+    ${PNL_CONCEPTOS.map(c => {
+      const vs = evoCosts[c];
+      const maxV = Math.max(...vs, 1);
+      const varP = vs[4]>0 ? pct(vs[5],vs[4]) : (vs[5]>0 ? null : 0);
+      const varStr = varP===null?'nuevo':varP===0?'—':(varP>0?'↑ ':'↓ ')+Math.abs(Math.round(varP))+'%';
+      const varCol = varP===null?'var(--text-tertiary)':varP>0?'var(--danger-text)':varP<0?'var(--success-text)':'var(--text-tertiary)';
+      return `<tr onmouseover="this.style.background='var(--bg-secondary)'" onmouseout="this.style.background=''">
+        <td style="padding:6px 10px;color:var(--text-secondary)">${c}</td>
+        ${vs.map((v,i)=>{
+          const intensity = v/maxV;
+          const bg = v>0 ? `rgba(216,90,48,${(intensity*0.18).toFixed(2)})` : '';
+          return `<td style="padding:6px 10px;text-align:right;font-variant-numeric:tabular-nums;background:${bg};${i===5?'border-left:2px solid var(--border-md);font-weight:500':''};color:${v>0?'var(--text-primary)':'var(--text-tertiary)'}">${v>0?f(v):'—'}</td>`;
+        }).join('')}
+        <td style="padding:6px 10px;text-align:center;font-size:11px;font-weight:500;color:${varCol}">${varStr}</td>
+      </tr>`;
+    }).join('')}
+    </tbody></table></div>`;
+
+  // ── Gastos inusuales ──────────────────────────────────────────
+  const outTable = outliers.length === 0
+    ? `<div style="text-align:center;padding:20px;color:var(--text-tertiary);font-size:13px">No se detectaron gastos inusuales para este mes ✓</div>`
+    : `<table style="width:100%;border-collapse:collapse;font-size:12px">
+        <thead><tr style="background:var(--bg-secondary)">
+          <th style="${thSt}">Concepto</th>
+          <th style="${thR}">Este mes</th>
+          <th style="${thR}">Prom. 5 meses</th>
+          <th style="${thR}">Diferencia</th>
+          <th style="${thC}">Desvío</th>
+          <th style="${thSt}">Detalle</th>
+        </tr></thead><tbody>
+        ${outliers.map(o=>`<tr onmouseover="this.style.background='var(--bg-secondary)'" onmouseout="this.style.background=''">
+          <td style="padding:6px 10px">${o.c}</td>
+          <td style="padding:6px 10px;text-align:right;font-variant-numeric:tabular-nums">${f(o.cur)}</td>
+          <td style="padding:6px 10px;text-align:right;font-variant-numeric:tabular-nums;color:var(--text-secondary)">${o.avg>0?f(Math.round(o.avg)):'—'}</td>
+          <td style="padding:6px 10px;text-align:right;font-variant-numeric:tabular-nums;color:var(--danger-text)">+${f(Math.round(o.diff))}</td>
+          <td style="padding:6px 10px;text-align:center">
+            <span style="background:var(--danger-bg);color:var(--danger-text);padding:2px 7px;border-radius:10px;font-size:11px;font-weight:500">${o.pct!==null?'+'+o.pct+'%':'nuevo'}</span>
+          </td>
+          <td style="padding:6px 10px;font-size:11px;color:var(--text-tertiary)">${o.reason}</td>
+        </tr>`).join('')}
+        </tbody></table>`;
+
+  // ── Compose ───────────────────────────────────────────────────
+  wrap.innerHTML = `
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px">
+      ${pnlCard}${cfCard}
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px">
+      ${card('Clientes que adeudan <span style="font-size:11px;font-weight:400;color:var(--text-tertiary)">— pendientes de cobro</span>', deudTable)}
+      ${card('Lo que debemos <span style="font-size:11px;font-weight:400;color:var(--text-tertiary)">— gastos pendientes de pago</span>', acrTable)}
+    </div>
+    <div style="background:var(--bg-primary);border:1px solid var(--border-md);border-radius:8px;padding:20px;margin-bottom:20px">
+      <div style="font-size:13px;font-weight:600;color:var(--text-primary);margin-bottom:4px">Evolución de costos por concepto — últimos 6 meses</div>
+      <div style="font-size:11px;color:var(--text-tertiary);margin-bottom:14px">La columna destacada corresponde al mes seleccionado. El color de fondo refleja la intensidad relativa del gasto.</div>
+      ${evoTable}
+    </div>
+    <div style="background:var(--bg-primary);border:1px solid var(--border-md);border-radius:8px;padding:20px">
+      <div style="font-size:13px;font-weight:600;color:var(--text-primary);margin-bottom:4px">Gastos inusuales o desalineados del trend</div>
+      <div style="font-size:11px;color:var(--text-tertiary);margin-bottom:14px">Conceptos cuyo gasto supera en más del 40% el promedio de los 5 meses anteriores, o que no tienen historial reciente.</div>
+      ${outTable}
+    </div>`;
 }
 
 // ─── Export to XLS ───────────────────────────────────────────────
