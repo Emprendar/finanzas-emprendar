@@ -1810,12 +1810,9 @@ function renderPnlTable() {
   // KPI cards
   const kpis = document.getElementById('pnl-kpis');
   if(kpis) {
-    const ventasTotal = periods.length > 0
-      ? periods.reduce((s,p) => s + getPnlDataForPeriod(p).ventas, 0)
-      : state.cobros.reduce((s,c) => s + (c.monto||0), 0);
-    const costosTotal = periods.length > 0
-      ? periods.reduce((s,p) => s + getPnlDataForPeriod(p).totalCostos, 0)
-      : state.gastos.reduce((s,g) => s + (g.monto||0), 0);
+    if(periods.length === 0) { kpis.innerHTML = ''; return; }
+    const ventasTotal = periods.reduce((s,p) => s + getPnlDataForPeriod(p).ventas, 0);
+    const costosTotal = periods.reduce((s,p) => s + getPnlDataForPeriod(p).totalCostos, 0);
     const cantVentas = periods.length > 0
       ? state.cobros.filter(c => c.fecha && periods.some(p => c.fecha.startsWith(p))).length
       : state.cobros.length;
@@ -3272,9 +3269,125 @@ function renderProyectos() {
 }
 
 // ─── Cashflow ─────────────────────────────────────────────────────
-// otrosIngresos[year][monthIdx|'e'+monthIdx] = monto manual
-const otrosIngresos = {};
-function getCfOtros(year, month) { return (otrosIngresos[year] && otrosIngresos[year][month]) || 0; }
+// Otros Ingresos: dynamic rows with editable name + amounts per month
+let otrosIngresosRows = [{ id: 'oir0', nombre: '', valores: {} }];
+let _oirCounter = 1;
+
+function getCfOtros(year, month) {
+  return otrosIngresosRows.reduce((s, row) => s + ((row.valores[year] && row.valores[year][month]) || 0), 0);
+}
+
+// Otros Egresos: dynamic rows with editable name + amounts per month
+let otrosEgresosRows = [{ id: 'oer0', nombre: '', valores: {} }];
+let _oerCounter = 1;
+
+function getCfOtrosE(year, month) {
+  return otrosEgresosRows.reduce((s, row) => s + ((row.valores[year] && row.valores[year][month]) || 0), 0);
+}
+
+function deleteCfOtroI(rowId) {
+  otrosIngresosRows = otrosIngresosRows.filter(r => r.id !== rowId);
+  if(otrosIngresosRows.length === 0 || otrosIngresosRows[otrosIngresosRows.length-1].nombre !== '')
+    otrosIngresosRows.push({ id: 'oir' + (_oirCounter++), nombre: '', valores: {} });
+  renderCfTable();
+}
+
+function deleteCfOtroE(rowId) {
+  otrosEgresosRows = otrosEgresosRows.filter(r => r.id !== rowId);
+  if(otrosEgresosRows.length === 0 || otrosEgresosRows[otrosEgresosRows.length-1].nombre !== '')
+    otrosEgresosRows.push({ id: 'oer' + (_oerCounter++), nombre: '', valores: {} });
+  renderCfTable();
+}
+
+function openCfOtroNombre(rowId) {
+  const row = otrosIngresosRows.find(r => r.id === rowId);
+  if(!row) return;
+  const cell = document.getElementById('cf-oi-name-' + rowId);
+  if(!cell) return;
+  const esc = row.nombre.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+  cell.innerHTML = `<input type="text" value="${row.nombre}" placeholder="Nombre del concepto"
+    style="width:calc(100% - 8px);font-size:12px;padding:3px 6px;border:1px solid var(--info-text);border-radius:4px;background:var(--bg-primary);color:var(--text-primary)"
+    onblur="saveCfOtroNombre('${rowId}',this.value)"
+    onkeydown="if(event.key==='Enter')this.blur();if(event.key==='Escape'){this.value='${esc}';this.blur();}"
+    autofocus>`;
+  cell.querySelector('input').select();
+}
+
+function saveCfOtroNombre(rowId, nombre) {
+  const row = otrosIngresosRows.find(r => r.id === rowId);
+  if(!row) return;
+  row.nombre = nombre.trim();
+  if(row.nombre && otrosIngresosRows.indexOf(row) === otrosIngresosRows.length - 1)
+    otrosIngresosRows.push({ id: 'oir' + (_oirCounter++), nombre: '', valores: {} });
+  renderCfTable();
+}
+
+function openCfOtroVal(rowId, year, month) {
+  const row = otrosIngresosRows.find(r => r.id === rowId);
+  if(!row) return;
+  const current = (row.valores[year] && row.valores[year][month]) || 0;
+  const cell = document.getElementById(`cf-oi-${rowId}-${year}-${month}`);
+  if(!cell) return;
+  cell.innerHTML = `<input type="number" value="${current||''}" placeholder="0"
+    style="width:80px;font-size:12px;padding:3px 6px;border:1px solid var(--info-text);border-radius:4px;text-align:right;background:var(--bg-primary);color:var(--text-primary)"
+    onblur="saveCfOtroVal('${rowId}',${year},${month},this.value)"
+    onkeydown="if(event.key==='Enter')this.blur();if(event.key==='Escape'){this.value='${current}';this.blur();}"
+    autofocus>`;
+  cell.querySelector('input').select();
+}
+
+function saveCfOtroVal(rowId, year, month, value) {
+  const row = otrosIngresosRows.find(r => r.id === rowId);
+  if(!row) return;
+  if(!row.valores[year]) row.valores[year] = {};
+  row.valores[year][month] = parseFloat(value) || 0;
+  renderCfTable();
+}
+
+function openCfOtroENombre(rowId) {
+  const row = otrosEgresosRows.find(r => r.id === rowId);
+  if(!row) return;
+  const cell = document.getElementById('cf-oe-name-' + rowId);
+  if(!cell) return;
+  const esc = row.nombre.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+  cell.innerHTML = `<input type="text" value="${row.nombre}" placeholder="Nombre del concepto"
+    style="width:calc(100% - 8px);font-size:12px;padding:3px 6px;border:1px solid var(--info-text);border-radius:4px;background:var(--bg-primary);color:var(--text-primary)"
+    onblur="saveCfOtroENombre('${rowId}',this.value)"
+    onkeydown="if(event.key==='Enter')this.blur();if(event.key==='Escape'){this.value='${esc}';this.blur();}"
+    autofocus>`;
+  cell.querySelector('input').select();
+}
+
+function saveCfOtroENombre(rowId, nombre) {
+  const row = otrosEgresosRows.find(r => r.id === rowId);
+  if(!row) return;
+  row.nombre = nombre.trim();
+  if(row.nombre && otrosEgresosRows.indexOf(row) === otrosEgresosRows.length - 1)
+    otrosEgresosRows.push({ id: 'oer' + (_oerCounter++), nombre: '', valores: {} });
+  renderCfTable();
+}
+
+function openCfOtroEVal(rowId, year, month) {
+  const row = otrosEgresosRows.find(r => r.id === rowId);
+  if(!row) return;
+  const current = (row.valores[year] && row.valores[year][month]) || 0;
+  const cell = document.getElementById(`cf-oe-${rowId}-${year}-${month}`);
+  if(!cell) return;
+  cell.innerHTML = `<input type="number" value="${current||''}" placeholder="0"
+    style="width:80px;font-size:12px;padding:3px 6px;border:1px solid var(--info-text);border-radius:4px;text-align:right;background:var(--bg-primary);color:var(--text-primary)"
+    onblur="saveCfOtroEVal('${rowId}',${year},${month},this.value)"
+    onkeydown="if(event.key==='Enter')this.blur();if(event.key==='Escape'){this.value='${current}';this.blur();}"
+    autofocus>`;
+  cell.querySelector('input').select();
+}
+
+function saveCfOtroEVal(rowId, year, month, value) {
+  const row = otrosEgresosRows.find(r => r.id === rowId);
+  if(!row) return;
+  if(!row.valores[year]) row.valores[year] = {};
+  row.valores[year][month] = parseFloat(value) || 0;
+  renderCfTable();
+}
 
 // Period filter (identical structure to P&L)
 let cfMode = 'mes';
@@ -3385,56 +3498,12 @@ function buildCfDropdownList() {
   }).join('');
 }
 
-function openCfOtros(year, month) {
-  const current = getCfOtros(year, month);
-  const cell = document.getElementById(`cf-otros-${year}-${month}`);
-  if(!cell) return;
-  cell.innerHTML = `<input type="number" value="${current||''}" placeholder="0"
-    style="width:80px;font-size:12px;padding:3px 6px;border:1px solid var(--info-text);border-radius:4px;text-align:right;background:var(--bg-primary);color:var(--text-primary)"
-    onblur="saveCfOtros(${year},${month},this.value)"
-    onkeydown="if(event.key==='Enter')this.blur();if(event.key==='Escape'){this.value='${current}';this.blur();}"
-    autofocus>`;
-  cell.querySelector('input').select();
-}
-
-function saveCfOtros(year, month, value) {
-  const val = parseFloat(value) || 0;
-  if(!otrosIngresos[year]) otrosIngresos[year] = {};
-  otrosIngresos[year][month] = val;
-  renderCfTable();
-}
-
 // Derives the "active year" from cfSelected for the chart & export functions
 function getCfYear() {
   if(cfSelected.size > 0) return parseInt([...cfSelected].sort().reverse()[0].substring(0,4));
   return new Date().getFullYear();
 }
 
-function openCfOtrosE(year, month) {
-  const current = (otrosIngresos[year] && otrosIngresos[year]['e'+month]) || 0;
-  const cell = document.getElementById(`cf-otros-e-${year}-${month}`);
-  if(!cell) return;
-  cell.innerHTML = `<input type="number" value="${current||''}" placeholder="0"
-    style="width:80px;font-size:12px;padding:3px 6px;border:1px solid var(--info-text);border-radius:4px;text-align:right;background:var(--bg-primary);color:var(--text-primary)"
-    onblur="saveCfOtrosE(${year},${month},this.value)"
-    onkeydown="if(event.key==='Enter')this.blur();if(event.key==='Escape'){this.value='${current}';this.blur();}"
-    autofocus>`;
-  cell.querySelector('input').select();
-}
-
-function saveCfOtros(year, month, value) {
-  const val = parseFloat(value) || 0;
-  if(!otrosIngresos[year]) otrosIngresos[year] = {};
-  otrosIngresos[year][month] = val;
-  renderCfTable();
-}
-
-function saveCfOtrosE(year, month, value) {
-  const val = parseFloat(value) || 0;
-  if(!otrosIngresos[year]) otrosIngresos[year] = {};
-  otrosIngresos[year]['e'+month] = val;
-  renderCfTable();
-}
 
 // ─── Cashflow drill-down ──────────────────────────────────────────
 function cfDrillDown(type, periodsStr, concepto) {
@@ -3509,7 +3578,7 @@ function renderCfTable() {
     conceptos.forEach(c => { egr[c][p] = 0; });
     getMonths(p).forEach(({year, month}) => {
       otrosI[p] += getCfOtros(year, month);
-      otrosE[p] += (otrosIngresos[year] && otrosIngresos[year]['e'+month]) || 0;
+      otrosE[p] += getCfOtrosE(year, month);
     });
   });
 
@@ -3580,22 +3649,37 @@ function renderCfTable() {
     ${periods.map(p=>tdNum(cobranzas[p],false,`cfDrillDown('cobros','${p}')`)).join('')}
   </tr>`;
 
-  html += `<tr onmouseover="this.style.background='var(--bg-secondary)'" onmouseout="this.style.background=''">
-    <td style="padding:6px 16px 6px 28px;color:var(--text-secondary);position:sticky;left:0;background:inherit;display:flex;align-items:center;gap:6px">
-      Otros Ingresos <span style="font-size:10px;color:var(--info-text);background:var(--info-bg);padding:1px 6px;border-radius:10px">editable</span>
-    </td>
-    ${showTotal?tdAcum(acumOtrosI):''}
-    ${periods.map(p => {
-      if(cfMode==='anio') return tdNum(otrosI[p]);
-      const yr=parseInt(p.substring(0,4)), mi=parseInt(p.substring(5,7))-1;
-      return tdEdit(otrosI[p],`cf-otros-${yr}-${mi}`,`openCfOtros(${yr},${mi})`);
-    }).join('')}
-  </tr>`;
+  otrosIngresosRows.forEach((row, rowIdx) => {
+    const rowOtrosI = {};
+    periods.forEach(p => {
+      rowOtrosI[p] = 0;
+      getMonths(p).forEach(({year, month}) => {
+        rowOtrosI[p] += ((row.valores[year] && row.valores[year][month]) || 0);
+      });
+    });
+    const rowAcum = periods.reduce((s,p) => s + rowOtrosI[p], 0);
+    const isLast = rowIdx === otrosIngresosRows.length - 1;
+    const namePlaceholder = isLast && !row.nombre ? '+ Agregar ingreso' : (row.nombre || '');
+    const deleteBtn = row.nombre ? `<span onclick="event.stopPropagation();deleteCfOtroI('${row.id}')" title="Eliminar fila" style="margin-left:auto;padding:0 4px;color:var(--text-tertiary);cursor:pointer;font-size:13px;line-height:1" onmouseover="this.style.color='var(--negative)'" onmouseout="this.style.color='var(--text-tertiary)'">✕</span>` : '';
+    const nameStyle = `padding:6px 16px 6px 28px;color:${row.nombre ? 'var(--text-secondary)' : 'var(--text-tertiary)'};position:sticky;left:0;background:inherit;cursor:pointer;font-style:${row.nombre ? 'normal' : 'italic'};display:flex;align-items:center;gap:6px`;
+    html += `<tr onmouseover="this.style.background='var(--bg-secondary)'" onmouseout="this.style.background=''">
+      <td id="cf-oi-name-${row.id}" onclick="openCfOtroNombre('${row.id}')"
+        style="${nameStyle}"
+        onmouseover="this.style.background='var(--info-bg)'" onmouseout="this.style.background=''"
+        title="Click para editar nombre"><span style="flex:1">${namePlaceholder}</span>${deleteBtn}</td>
+      ${showTotal ? tdAcum(rowAcum) : ''}
+      ${periods.map(p => {
+        if(cfMode==='anio') return tdNum(rowOtrosI[p]);
+        const yr=parseInt(p.substring(0,4)), mi=parseInt(p.substring(5,7))-1;
+        return tdEdit(rowOtrosI[p], `cf-oi-${row.id}-${yr}-${mi}`, `openCfOtroVal('${row.id}',${yr},${mi})`);
+      }).join('')}
+    </tr>`;
+  });
 
   html += `<tr style="border-top:0.5px solid var(--border-md)">
     <td style="padding:8px 16px;font-weight:500;position:sticky;left:0;background:inherit">Total ingresos</td>
-    ${showTotal?tdAcum(acumIngresos,true):''}
-    ${periods.map(p=>tdNum(totalI(p),true)).join('')}
+    ${showTotal?tdAcum(acumIngresos,true,`cfDrillDown('cobros','${allPStr}')`):''}
+    ${periods.map(p=>tdNum(totalI(p),true,`cfDrillDown('cobros','${p}')`)).join('')}
   </tr>`;
 
   // EGRESOS
@@ -3611,23 +3695,37 @@ function renderCfTable() {
     </tr>`;
   });
 
-  html += `<tr onmouseover="this.style.background='var(--bg-secondary)'" onmouseout="this.style.background=''">
-    <td style="padding:6px 16px 6px 28px;color:var(--text-secondary);position:sticky;left:0;background:inherit;display:flex;align-items:center;gap:6px">
-      Otros Egresos <span style="font-size:10px;color:var(--info-text);background:var(--info-bg);padding:1px 6px;border-radius:10px">editable</span>
-    </td>
-    ${showTotal?tdAcum(-acumOtrosE):''}
-    ${periods.map(p => {
-      if(cfMode==='anio') return tdNum(-otrosE[p]);
-      const yr=parseInt(p.substring(0,4)), mi=parseInt(p.substring(5,7))-1;
-      const v=(otrosIngresos[yr]&&otrosIngresos[yr]['e'+mi])||0;
-      return tdEdit(v>0?-v:0,`cf-otros-e-${yr}-${mi}`,`openCfOtrosE(${yr},${mi})`);
-    }).join('')}
-  </tr>`;
+  otrosEgresosRows.forEach((row, rowIdx) => {
+    const rowOtrosE = {};
+    periods.forEach(p => {
+      rowOtrosE[p] = 0;
+      getMonths(p).forEach(({year, month}) => {
+        rowOtrosE[p] += ((row.valores[year] && row.valores[year][month]) || 0);
+      });
+    });
+    const rowAcum = -periods.reduce((s,p) => s + rowOtrosE[p], 0);
+    const isLast = rowIdx === otrosEgresosRows.length - 1;
+    const namePlaceholder = isLast && !row.nombre ? '+ Agregar egreso' : (row.nombre || '');
+    const deleteBtn = row.nombre ? `<span onclick="event.stopPropagation();deleteCfOtroE('${row.id}')" title="Eliminar fila" style="margin-left:auto;padding:0 4px;color:var(--text-tertiary);cursor:pointer;font-size:13px;line-height:1" onmouseover="this.style.color='var(--negative)'" onmouseout="this.style.color='var(--text-tertiary)'">✕</span>` : '';
+    const nameStyle = `padding:6px 16px 6px 28px;color:${row.nombre ? 'var(--text-secondary)' : 'var(--text-tertiary)'};position:sticky;left:0;background:inherit;cursor:pointer;font-style:${row.nombre ? 'normal' : 'italic'};display:flex;align-items:center;gap:6px`;
+    html += `<tr onmouseover="this.style.background='var(--bg-secondary)'" onmouseout="this.style.background=''">
+      <td id="cf-oe-name-${row.id}" onclick="openCfOtroENombre('${row.id}')"
+        style="${nameStyle}"
+        onmouseover="this.style.background='var(--info-bg)'" onmouseout="this.style.background=''"
+        title="Click para editar nombre"><span style="flex:1">${namePlaceholder}</span>${deleteBtn}</td>
+      ${showTotal ? tdAcum(rowAcum) : ''}
+      ${periods.map(p => {
+        if(cfMode==='anio') return tdNum(-rowOtrosE[p]);
+        const yr=parseInt(p.substring(0,4)), mi=parseInt(p.substring(5,7))-1;
+        return tdEdit(-rowOtrosE[p], `cf-oe-${row.id}-${yr}-${mi}`, `openCfOtroEVal('${row.id}',${yr},${mi})`);
+      }).join('')}
+    </tr>`;
+  });
 
   html += `<tr style="border-top:0.5px solid var(--border-md)">
     <td style="padding:8px 16px;font-weight:500;position:sticky;left:0;background:inherit">Total egresos</td>
-    ${showTotal?tdAcum(-acumEgresos,true):''}
-    ${periods.map(p=>tdNum(-totalE(p),true)).join('')}
+    ${showTotal?tdAcum(-acumEgresos,true,`cfDrillDown('gastos','${allPStr}')`):''}
+    ${periods.map(p=>tdNum(-totalE(p),true,`cfDrillDown('gastos','${p}')`)).join('')}
   </tr>`;
 
   // FLUJO DE FONDOS
@@ -3737,7 +3835,7 @@ function renderCfChart() {
       const m = parseInt(g.fechaPago.substring(5,7)) - 1;
       if(conceptos.includes(g.concepto)) egr[m] += (g.monto || 0);
     });
-    const otrosE = Array(12).fill(0).map((_,i) => (otrosIngresos[getCfYear()] && otrosIngresos[getCfYear()]['e'+i]) || 0);
+    const otrosE = Array(12).fill(0).map((_,i) => getCfOtrosE(getCfYear(), i));
     egrData = egr.map((v,i) => v + otrosE[i]);
     flujoData = ingrData.map((v,i) => v - egrData[i]);
 
@@ -4161,7 +4259,7 @@ function exportXLS(sheet) {
       if(conceptos.includes(g.concepto)) egr[g.concepto][m] += (g.monto||0);
     });
     conceptos.forEach(c => cfRows.push([c, ...egr[c].map(v=>-v), -egr[c].reduce((s,v)=>s+v,0)]));
-    const otrosE = Array(12).fill(0).map((_,i) => (otrosIngresos[yr]&&otrosIngresos[yr]['e'+i])||0);
+    const otrosE = Array(12).fill(0).map((_,i) => getCfOtrosE(yr, i));
     cfRows.push(['Otros Egresos', ...otrosE.map(v=>-v), -otrosE.reduce((s,v)=>s+v,0)]);
     const totE = Array(12).fill(0);
     conceptos.forEach(c => egr[c].forEach((v,i)=>totE[i]+=v));
