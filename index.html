@@ -247,8 +247,20 @@
         <!-- KPIs ventas -->
         <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-bottom:16px" id="dash-ventas-kpis"></div>
 
-        <!-- Gráfico de línea -->
+        <!-- Ticket por cliente vs promedio -->
         <div class="panel" style="margin-bottom:16px">
+          <div class="panel-header">
+            <h2>Ticket promedio por cliente</h2>
+            <span style="font-size:11px;color:var(--text-tertiary)">vs promedio general</span>
+          </div>
+          <div class="panel-body" style="padding:12px 16px">
+            <div style="position:relative;height:200px"><canvas id="dashTicketChart"></canvas></div>
+          </div>
+        </div>
+
+        <!-- Evolución de ventas -->
+        <div class="panel" style="margin-bottom:16px">
+          <div class="panel-header"><h2>Evolución de ventas</h2></div>
           <div class="panel-body" style="padding:12px 16px">
             <div style="position:relative;height:180px"><canvas id="dashSalesChart"></canvas></div>
           </div>
@@ -1095,7 +1107,7 @@ function fmt(n) { return '$' + Math.round(n).toLocaleString('es-AR'); }
 function fmtK(n) { return n >= 1000000 ? '$' + (n/1000000).toFixed(1) + 'M' : '$' + Math.round(n/1000) + 'k'; }
 function pct(a,b) { return b ? (a/b*100).toFixed(1)+'%' : '—'; }
 
-let mainChartInst = null, donutInst = null, dashSalesChartInst = null;
+let mainChartInst = null, donutInst = null, dashSalesChartInst = null, dashTicketChartInst = null;
 let currentMainChart = 'trend';
 
 function renderDashboard() {
@@ -1159,6 +1171,73 @@ function renderDashboard() {
       const ym = c.fecha.substring(0,7);
       if(Object.prototype.hasOwnProperty.call(clientVentasPorMes, ym)) clientVentasPorMes[ym] += (c.monto||0);
     });
+  }
+
+  // ── Ticket por cliente vs promedio general
+  const ticketByClient = {};
+  const countByClient = {};
+  cobrosFiltrados.forEach(c => {
+    if(!c.client) return;
+    ticketByClient[c.client] = (ticketByClient[c.client]||0) + (c.monto||0);
+    countByClient[c.client] = (countByClient[c.client]||0) + 1;
+  });
+  const clientTickets = Object.keys(ticketByClient)
+    .map(cl => ({ cl, ticket: ticketByClient[cl] / countByClient[cl] }))
+    .sort((a,b) => b.ticket - a.ticket);
+
+  if(dashTicketChartInst) { dashTicketChartInst.destroy(); dashTicketChartInst = null; }
+  const ticketCtx = document.getElementById('dashTicketChart');
+  if(ticketCtx && window.Chart && clientTickets.length) {
+    const dark = matchMedia('(prefers-color-scheme: dark)').matches;
+    const gridColor = dark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)';
+    const tickColor = dark ? '#888' : '#aaa';
+    const avg = ticketPromedio || 0;
+    const barColors = clientTickets.map(c => c.ticket >= avg ? '#1D9E75' : '#D85A30');
+    dashTicketChartInst = new Chart(ticketCtx, {
+      type: 'bar',
+      data: {
+        labels: clientTickets.map(c => c.cl),
+        datasets: [
+          {
+            type: 'bar',
+            label: 'Ticket promedio',
+            data: clientTickets.map(c => c.ticket),
+            backgroundColor: barColors,
+            borderRadius: 4,
+            borderSkipped: false,
+            order: 2,
+          },
+          {
+            type: 'line',
+            label: 'Promedio general',
+            data: clientTickets.map(() => avg),
+            borderColor: '#888',
+            borderWidth: 1.5,
+            borderDash: [5, 3],
+            pointRadius: 0,
+            fill: false,
+            order: 1,
+          }
+        ]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { display: true, position: 'top', labels: { font: { size: 10 }, color: tickColor,
+            filter: item => item.text === 'Promedio general' } },
+          tooltip: { callbacks: { label: ctx => ctx.dataset.type === 'line'
+            ? 'Promedio: $'+Math.round(ctx.raw).toLocaleString('es-AR')
+            : '$'+Math.round(ctx.raw).toLocaleString('es-AR') } }
+        },
+        scales: {
+          x: { grid: { display: false }, ticks: { color: tickColor, font: { size: 10 } } },
+          y: { grid: { color: gridColor }, ticks: { color: tickColor, font: { size: 10 }, callback: v => fmtK(v) } }
+        }
+      }
+    });
+  } else if(ticketCtx && window.Chart) {
+    ticketCtx.parentElement.innerHTML = '<div style="height:200px;display:flex;align-items:center;justify-content:center;color:var(--text-tertiary);font-size:12px">Sin ventas en el período</div>';
   }
 
   if(dashSalesChartInst) { dashSalesChartInst.destroy(); dashSalesChartInst = null; }
