@@ -1819,20 +1819,36 @@ function renderPnlTable() {
     const cantVentas = periods.length > 0
       ? state.cobros.filter(c => c.fecha && periods.some(p => c.fecha.startsWith(p))).length
       : state.cobros.length;
+    const extraordinariosTotal = periods.length > 0
+      ? periods.reduce((s,p) => s + (getPnlDataForPeriod(p).costos['Extraordinarios'] || 0), 0)
+      : state.gastos.filter(g => g.concepto === 'Extraordinarios').reduce((s,g) => s + (g.monto||0), 0);
     const resultadoTotal = ventasTotal - costosTotal;
-    const ticketProm = cantVentas > 0 ? ventasTotal / cantVentas : 0;
-    const costoProm  = cantVentas > 0 ? costosTotal  / cantVentas : 0;
-    const margenProm = cantVentas > 0 ? resultadoTotal / cantVentas : 0;
-    kpis.innerHTML = [
-      { label:'Ticket Promedio', val: cantVentas > 0 ? fmtPesos(ticketProm) : '—', sub:'ventas / cantidad de ventas', cls:'' },
-      { label:'Costo Promedio', val: cantVentas > 0 ? fmtPesos(costoProm) : '—', sub:'costos totales / cantidad de ventas', cls:'neg' },
-      { label:'Margen Promedio', val: cantVentas > 0 ? fmtPesos(margenProm) : '—', sub:'resultado neto / cantidad de ventas', cls: margenProm >= 0 ? 'pos' : 'neg' },
-      { label:'Cantidad de ventas', val: cantVentas, sub: periods.length > 0 ? 'en el período seleccionado' : 'total', cls:'' },
-    ].map(k=>`<div class="metric-card" style="padding:12px 14px">
+    const costosExExt    = costosTotal - extraordinariosTotal;
+    const resultadoExExt = resultadoTotal + extraordinariosTotal;
+    const ticketProm     = cantVentas > 0 ? ventasTotal       / cantVentas : 0;
+    const costoProm      = cantVentas > 0 ? costosTotal        / cantVentas : 0;
+    const margenProm     = cantVentas > 0 ? resultadoTotal     / cantVentas : 0;
+    const costoPromExExt = cantVentas > 0 ? costosExExt        / cantVentas : 0;
+    const margenPromExExt= cantVentas > 0 ? resultadoExExt     / cantVentas : 0;
+
+    const kpiCard = k => `<div class="metric-card" style="padding:12px 14px">
       <div class="metric-label" style="font-size:11px">${k.label}</div>
       <div class="metric-value ${k.cls}" style="font-size:18px">${k.val}</div>
       ${k.sub?`<div class="metric-sub" style="font-size:10px">${k.sub}</div>`:''}
-    </div>`).join('');
+    </div>`;
+
+    kpis.innerHTML =
+      [
+        { label:'Ticket Promedio', val: cantVentas > 0 ? fmtPesos(ticketProm) : '—', sub:'ventas / cantidad de ventas', cls:'' },
+        { label:'Costo Promedio', val: cantVentas > 0 ? fmtPesos(costoProm) : '—', sub:'costos totales / cantidad de ventas', cls:'neg' },
+        { label:'Margen Promedio', val: cantVentas > 0 ? fmtPesos(margenProm) : '—', sub:'resultado neto / cantidad de ventas', cls: margenProm >= 0 ? 'pos' : 'neg' },
+        { label:'Cantidad de ventas', val: cantVentas, sub: periods.length > 0 ? 'en el período seleccionado' : 'total', cls:'' },
+      ].map(kpiCard).join('') +
+      `<div style="grid-column:1/-1;border-top:0.5px solid var(--border);margin:4px 0"></div>` +
+      [
+        { label:'Costo Promedio (ex. Extraordinarios)', val: cantVentas > 0 ? fmtPesos(costoPromExExt) : '—', sub:'(costos − extraordinarios) / cant. ventas', cls:'neg' },
+        { label:'Margen Promedio (ex. Extraordinarios)', val: cantVentas > 0 ? fmtPesos(margenPromExExt) : '—', sub:'(resultado + extraordinarios) / cant. ventas', cls: margenPromExExt >= 0 ? 'pos' : 'neg' },
+      ].map(kpiCard).join('');
   }
 
   if(periods.length === 0) {
