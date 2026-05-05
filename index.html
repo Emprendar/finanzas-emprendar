@@ -544,6 +544,8 @@
                 <option>Honorarios Profesionales</option>
                 <option>Mobiliario (Activo)</option>
                 <option>Equipos (Activo)</option>
+                <option>Extraordinarios</option>
+                <option>Préstamo</option>
               </select>
             </div>
             <div class="form-group"><label>Monto ($)</label><input id="gs-monto" type="number" placeholder="0"></div>
@@ -624,6 +626,7 @@
                   <option>Alquiler Oficina</option><option>Expensas</option><option>Otros Gs. Oficina</option>
                   <option>Impuestos</option><option>Marketing Digital</option><option>Honorarios Profesionales</option>
                   <option>Mobiliario (Activo)</option><option>Equipos (Activo)</option>
+                  <option>Extraordinarios</option><option>Préstamo</option>
                 </select>
               </div>
               <div class="form-group"><label>Monto ($)</label><input id="eg-monto" type="number"></div>
@@ -1626,7 +1629,7 @@ function periodLabel(key) {
 const PNL_CONCEPTOS = [
   'Sueldos y CCSS','Otros Gs. Personal','Gs. Administrativos',
   'Alquiler Oficina','Expensas','Otros Gs. Oficina',
-  'Impuestos','Marketing Digital','Honorarios Profesionales'
+  'Impuestos','Marketing Digital','Honorarios Profesionales','Extraordinarios'
 ];
 
 function renderPnl() {
@@ -2095,7 +2098,7 @@ function renderBalance() {
     const dateRef = c.fechaCobro || c.fecha;
     if(dateRef && dateRef.startsWith(currentYear)) ingrYtd += (c.monto || 0);
   });
-  const cfConceptos = ['Sueldos y CCSS','Otros Gs. Personal','Gs. Administrativos','Alquiler Oficina','Expensas','Otros Gs. Oficina','Impuestos','Marketing Digital','Honorarios Profesionales','Mobiliario (Activo)','Equipos (Activo)'];
+  const cfConceptos = ['Sueldos y CCSS','Otros Gs. Personal','Gs. Administrativos','Alquiler Oficina','Expensas','Otros Gs. Oficina','Impuestos','Marketing Digital','Honorarios Profesionales','Mobiliario (Activo)','Equipos (Activo)','Extraordinarios','Préstamo'];
   state.gastos.filter(g => g.estado === 'pagado' && g.fechaPago).forEach(g => {
     if(g.fechaPago.startsWith(currentYear) && cfConceptos.includes(g.concepto)) egrYtd += (g.monto || 0);
   });
@@ -2229,7 +2232,7 @@ function renderBalance() {
   const tbodyP = document.getElementById('bs-pasivos-tbody');
   if(!tbodyP) return;
 
-  const PNL_CONCEPTOS_BS = ['Sueldos y CCSS','Otros Gs. Personal','Gs. Administrativos','Alquiler Oficina','Expensas','Otros Gs. Oficina','Impuestos','Marketing Digital','Honorarios Profesionales','Mobiliario (Activo)','Equipos (Activo)'];
+  const PNL_CONCEPTOS_BS = ['Sueldos y CCSS','Otros Gs. Personal','Gs. Administrativos','Alquiler Oficina','Expensas','Otros Gs. Oficina','Impuestos','Marketing Digital','Honorarios Profesionales','Mobiliario (Activo)','Equipos (Activo)','Extraordinarios'];
 
   // Cuentas a pagar por concepto (gastos pendientes YTD)
   const cxp = {};
@@ -3477,6 +3480,7 @@ function renderCfTable() {
     'Sueldos y CCSS','Otros Gs. Personal','Gs. Administrativos',
     'Alquiler Oficina','Expensas','Otros Gs. Oficina','Impuestos',
     'Marketing Digital','Honorarios Profesionales','Mobiliario (Activo)','Equipos (Activo)',
+    'Extraordinarios','Préstamo',
   ];
 
   const cobranzas = {}, otrosI = {}, otrosE = {}, egr = {};
@@ -3707,7 +3711,7 @@ function renderCfChart() {
     ingrData = cobranzas.map((v,i) => v + otros[i]);
 
     // Egresos por mes
-    const conceptos = ['Sueldos y CCSS','Otros Gs. Personal','Gs. Administrativos','Alquiler Oficina','Expensas','Otros Gs. Oficina','Impuestos','Marketing Digital','Honorarios Profesionales','Mobiliario (Activo)','Equipos (Activo)'];
+    const conceptos = ['Sueldos y CCSS','Otros Gs. Personal','Gs. Administrativos','Alquiler Oficina','Expensas','Otros Gs. Oficina','Impuestos','Marketing Digital','Honorarios Profesionales','Mobiliario (Activo)','Equipos (Activo)','Extraordinarios','Préstamo'];
     const egr = Array(12).fill(0);
     state.gastos.filter(g => g.estado === 'pagado' && g.fechaPago).forEach(g => {
       if(parseInt(g.fechaPago.substring(0,4)) !== getCfYear()) return;
@@ -4129,7 +4133,7 @@ function exportXLS(sheet) {
     cfRows.push(['Otros Ingresos', ...otrosI, otrosI.reduce((s,v)=>s+v,0)]);
     const totI = cobranzas.map((v,i)=>v+otrosI[i]);
     cfRows.push(['Total ingresos', ...totI, totI.reduce((s,v)=>s+v,0)]);
-    const conceptos = ['Sueldos y CCSS','Otros Gs. Personal','Gs. Administrativos','Alquiler Oficina','Expensas','Otros Gs. Oficina','Impuestos','Marketing Digital','Honorarios Profesionales','Mobiliario (Activo)','Equipos (Activo)'];
+    const conceptos = ['Sueldos y CCSS','Otros Gs. Personal','Gs. Administrativos','Alquiler Oficina','Expensas','Otros Gs. Oficina','Impuestos','Marketing Digital','Honorarios Profesionales','Mobiliario (Activo)','Equipos (Activo)','Extraordinarios','Préstamo'];
     const egr = {};
     conceptos.forEach(c => { egr[c] = Array(12).fill(0); });
     state.gastos.filter(g => g.estado==='pagado' && g.fechaPago).forEach(g => {
@@ -4226,7 +4230,7 @@ function exportPDF(sheet) {
       if(parseInt(dr.substring(0,4))!==getCfYear()) return;
       cobranzas[parseInt(dr.substring(5,7))-1]+=(c.monto||0);
     });
-    const conceptosCf = ['Sueldos y CCSS','Otros Gs. Personal','Gs. Administrativos','Alquiler Oficina','Expensas','Otros Gs. Oficina','Impuestos','Marketing Digital','Honorarios Profesionales','Mobiliario (Activo)','Equipos (Activo)'];
+    const conceptosCf = ['Sueldos y CCSS','Otros Gs. Personal','Gs. Administrativos','Alquiler Oficina','Expensas','Otros Gs. Oficina','Impuestos','Marketing Digital','Honorarios Profesionales','Mobiliario (Activo)','Equipos (Activo)','Extraordinarios','Préstamo'];
     const egr = {}; conceptosCf.forEach(c=>{egr[c]=Array(12).fill(0);});
     state.gastos.filter(g=>g.estado==='pagado'&&g.fechaPago).forEach(g=>{
       if(parseInt(g.fechaPago.substring(0,4))!==getCfYear()) return;
