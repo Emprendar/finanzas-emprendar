@@ -101,10 +101,6 @@
   .proj-row:last-child { border-bottom: none; }
   .toast { position: fixed; bottom: 16px; right: 16px; background: var(--text-primary); color: var(--bg-primary); padding: 10px 16px; border-radius: var(--radius-lg); font-size: 12px; opacity: 0; transition: opacity 0.3s; pointer-events: none; z-index: 100; }
   .toast.show { opacity: 1; }
-  .mono-progress { background: var(--bg-secondary); border-radius: 4px; height: 8px; overflow: hidden; margin: 8px 0; }
-  .mono-fill { height: 100%; border-radius: 4px; background: var(--info-bg); transition: width 0.5s; }
-  .mono-fill.warn { background: var(--warning-bg); }
-  .mono-fill.danger { background: var(--danger-bg); }
   .mobile-nav { display: none; }
   @media (max-width: 700px) {
     .metrics-grid { grid-template-columns: 1fr 1fr; }
@@ -168,7 +164,6 @@
     <div class="nav-item" onclick="showPage('flujo')">Cashflow</div>
     <div class="nav-item" onclick="showPage('balance')">Balance Sheet</div>
     <div class="nav-section">Fiscal</div>
-    <div class="nav-item" onclick="showPage('monotributo')">Monotributo</div>
     <div class="nav-section">Gestión</div>
     <div class="nav-item" onclick="showPage('informe')">Informe de Gestión</div>
   </nav>
@@ -191,7 +186,6 @@
             <option value="balance">Balance Sheet</option>
           </optgroup>
           <optgroup label="Fiscal">
-            <option value="monotributo">Monotributo</option>
           </optgroup>
           <optgroup label="Gestión">
             <option value="informe">Informe de Gestión</option>
@@ -248,112 +242,41 @@
         <div id="dash-alerts" style="display:flex;flex-direction:column;gap:6px;max-width:360px"></div>
       </div>
 
-      <!-- Me deben / Debo -->
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px">
+      <!-- Evolución de Ventas -->
+      <div style="margin-bottom:28px">
+        <div style="font-size:13px;font-weight:600;color:var(--text-primary);margin-bottom:14px;padding-bottom:8px;border-bottom:0.5px solid var(--border-md)">Evolución de Ventas</div>
 
-        <!-- Me deben -->
-        <div class="panel">
-          <div class="panel-header">
-            <h2>💰 Me deben</h2>
-            <span style="font-size:11px;color:var(--text-tertiary)">Cobros pendientes del período</span>
-          </div>
-          <div class="panel-body" style="padding:0">
-            <div id="dash-me-deben-total" style="padding:12px 16px;border-bottom:0.5px solid var(--border)"></div>
-            <div id="dash-me-deben-list" style="max-height:220px;overflow-y:auto"></div>
-          </div>
-        </div>
+        <!-- KPIs ventas -->
+        <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-bottom:16px" id="dash-ventas-kpis"></div>
 
-        <!-- Debo -->
-        <div class="panel">
-          <div class="panel-header">
-            <h2>📤 Debo</h2>
-            <span style="font-size:11px;color:var(--text-tertiary)">Gastos pendientes del período</span>
-          </div>
-          <div class="panel-body" style="padding:0">
-            <div id="dash-debo-total" style="padding:12px 16px;border-bottom:0.5px solid var(--border)"></div>
-            <div id="dash-debo-list" style="max-height:220px;overflow-y:auto"></div>
-          </div>
-        </div>
-
-      </div>
-
-      <!-- KPI Row 1: Rentabilidad -->
-      <div style="font-size:10px;font-weight:500;color:var(--text-tertiary);text-transform:uppercase;letter-spacing:0.07em;margin-bottom:8px">Rentabilidad</div>
-      <div style="display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px;margin-bottom:20px" id="kpi-rentabilidad"></div>
-
-      <!-- KPI Row 2: Caja -->
-      <div style="font-size:10px;font-weight:500;color:var(--text-tertiary);text-transform:uppercase;letter-spacing:0.07em;margin-bottom:8px">Caja y liquidez</div>
-      <div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-bottom:20px" id="kpi-caja"></div>
-
-      <!-- Charts row -->
-      <div style="display:grid;grid-template-columns:3fr 2fr;gap:16px;margin-bottom:20px">
-
-        <!-- Waterfall / Tendencia -->
-        <div class="panel">
-          <div class="panel-header">
-            <h2 id="chart-main-title">Revenue vs costos</h2>
-            <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
-              <!-- Period dropdown for chart -->
-              <div style="position:relative" id="chart-period-wrap">
-                <button id="chart-period-btn" onclick="toggleChartPeriodDropdown()"
-                  style="display:flex;align-items:center;gap:6px;padding:4px 10px;font-size:11px;border-radius:var(--radius-md);cursor:pointer;border:0.5px solid var(--border-md);background:var(--bg-primary);color:var(--text-primary);min-width:130px;justify-content:space-between">
-                  <span id="chart-period-label">Últimos 6 meses</span>
-                  <span style="font-size:9px;color:var(--text-tertiary)">▼</span>
-                </button>
-                <div id="chart-period-list" style="display:none;position:absolute;top:calc(100% + 4px);right:0;min-width:200px;max-height:260px;overflow-y:auto;background:var(--bg-primary);border:0.5px solid var(--border-md);border-radius:var(--radius-lg);box-shadow:0 4px 16px rgba(0,0,0,0.12);z-index:100;padding:6px 0"></div>
-              </div>
-              <div style="display:flex;gap:4px">
-                <button class="btn-secondary" style="padding:4px 10px;font-size:11px" onclick="setMainChart('trend',this)">Tendencia</button>
-                <button class="btn-secondary" style="padding:4px 10px;font-size:11px;background:var(--bg-secondary)" onclick="setMainChart('waterfall',this)">Waterfall</button>
-                <button class="btn-secondary" style="padding:4px 10px;font-size:11px" onclick="setMainChart('margin',this)">Márgenes</button>
-              </div>
-            </div>
-          </div>
+        <!-- Gráfico de línea -->
+        <div class="panel" style="margin-bottom:16px">
           <div class="panel-body" style="padding:12px 16px">
-            <div style="display:flex;gap:12px;font-size:11px;margin-bottom:10px" id="chart-legend"></div>
-            <div style="position:relative;height:140px"><canvas id="mainChart"></canvas></div>
+            <div style="position:relative;height:180px"><canvas id="dashSalesChart"></canvas></div>
           </div>
         </div>
 
-        <!-- Donut egresos -->
+        <!-- Cobros pendientes -->
         <div class="panel">
-          <div class="panel-header"><h2>Estructura de costos</h2></div>
-          <div class="panel-body">
-            <div style="display:flex;align-items:center;gap:16px">
-              <div style="position:relative;width:90px;height:90px;flex-shrink:0">
-                <canvas id="donutChart" width="90" height="90"></canvas>
-                <div id="donut-center" style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;pointer-events:none">
-                  <div style="font-size:10px;color:var(--text-tertiary)">Total</div>
-                  <div style="font-size:13px;font-weight:500" id="donut-total">$398k</div>
-                </div>
-              </div>
-              <div id="donut-legend" style="flex:1"></div>
-            </div>
+          <div class="panel-header">
+            <h2>Clientes con cobros pendientes</h2>
+            <span style="font-size:11px;color:var(--text-tertiary)">Ordenado por antigüedad</span>
           </div>
+          <div id="dash-pendientes-cobros" style="overflow-x:auto"></div>
         </div>
       </div>
 
-      <!-- Row 3: Clientes + Cuentas por cobrar -->
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px">
+      <!-- Evolución de Gastos -->
+      <div>
+        <div style="font-size:13px;font-weight:600;color:var(--text-primary);margin-bottom:14px;padding-bottom:8px;border-bottom:0.5px solid var(--border-md)">Evolución de Gastos</div>
 
-        <!-- Top clientes -->
-        <div class="panel">
-          <div class="panel-header"><h2>Top clientes por revenue</h2></div>
-          <div class="panel-body" style="padding:8px 0" id="top-clientes"></div>
+        <!-- Tabla por categoría -->
+        <div class="panel" style="margin-bottom:16px">
+          <div id="dash-gastos-evo" style="overflow-x:auto"></div>
         </div>
 
-        <!-- Cuentas x cobrar -->
-        <div class="panel">
-          <div class="panel-header"><h2>Cuentas por cobrar</h2></div>
-          <div class="panel-body" style="padding:8px 0" id="dash-cxc"></div>
-        </div>
-
-      </div>
-
-      <!-- Últimos movimientos -->
-      <div class="section-full">
-        <div class="panel-header"><h2>Últimos movimientos</h2><button class="btn-secondary" onclick="showPage('cobros')">Ver todos</button></div>
-        <table class="data-table"><thead><tr><th>Fecha</th><th>Descripción</th><th>Tipo</th><th>Monto</th><th>Estado</th></tr></thead><tbody id="recent-table"></tbody></table>
+        <!-- KPIs costos -->
+        <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px" id="dash-costos-kpis"></div>
       </div>
 
     </div>
@@ -794,84 +717,6 @@
     </div>
 
     <!-- FISCAL MONOTRIBUTO CAT. F -->
-    <div id="page-monotributo" class="content" style="display:none">
-      <!-- Selector de categoría -->
-      <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;flex-wrap:wrap">
-        <span style="font-size:12px;font-weight:500;color:var(--text-secondary)">Tu categoría:</span>
-        <div style="display:flex;gap:4px;flex-wrap:wrap" id="mono-cat-selector">
-          <!-- rendered by JS -->
-        </div>
-      </div>
-      <div class="alert alert-warn" style="margin-bottom:20px">Valores vigentes desde feb 2026 según ARCA. Verificá siempre en arca.gob.ar antes de pagar.</div>
-
-      <!-- KPI row: facturación real + alertas -->
-      <div class="metrics-grid" style="grid-template-columns:repeat(4,minmax(0,1fr));margin-bottom:20px" id="mono-kpis"></div>
-
-      <!-- Alert de límite -->
-      <div id="mono-alert-wrap" style="margin-bottom:16px"></div>
-
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px">
-
-        <!-- Vencimientos dinámicos -->
-        <div class="panel">
-          <div class="panel-header"><h2>Vencimientos <span id="mono-year-label"></span></h2></div>
-          <div class="panel-body" style="padding:0">
-            <table class="data-table" style="font-size:12px">
-              <thead><tr><th>Mes</th><th style="text-align:right">Cuota</th><th>Vence</th><th>Estado</th><th>Pago</th></tr></thead>
-              <tbody id="mono-venc-tbody"></tbody>
-            </table>
-            <div style="padding:10px 16px;font-size:11px;color:var(--text-tertiary)">Hacé click en "Pago" para marcar cada cuota como pagada o pendiente.</div>
-          </div>
-        </div>
-
-        <!-- Situación y proyección -->
-        <div style="display:flex;flex-direction:column;gap:16px">
-          <div class="panel">
-            <div class="panel-header"><h2 id="mono-situacion-title">Tu situación — categoría F</h2></div>
-            <div class="panel-body">
-              <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px" id="mono-situacion"></div>
-              <!-- Barra de límite -->
-              <div style="font-size:11px;color:var(--text-secondary);margin-bottom:6px">Uso del límite anual (YTD)</div>
-              <div style="background:var(--bg-secondary);border-radius:4px;height:10px;overflow:hidden;margin-bottom:4px">
-                <div id="mono-limit-bar" style="height:100%;border-radius:4px;transition:width 0.5s;background:#1D9E75;width:0%"></div>
-              </div>
-              <div id="mono-limit-label" style="font-size:11px;color:var(--text-tertiary)"></div>
-            </div>
-          </div>
-
-          <div class="panel">
-            <div class="panel-header"><h2>Proyección anual</h2></div>
-            <div class="panel-body" id="mono-proyeccion"></div>
-          </div>
-        </div>
-      </div>
-
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px">
-        <!-- Tabla de categorías -->
-        <div class="panel">
-          <div class="panel-header"><h2>Categorías cercanas — feb 2026</h2></div>
-          <div class="panel-body" style="padding:0">
-            <table class="data-table" style="font-size:11px" id="mono-cat-table">
-              <thead><tr><th>Cat.</th><th style="text-align:right">Límite anual</th><th style="text-align:right">Cuota/mes</th></tr></thead>
-              <tbody id="mono-cat-tbody"></tbody>
-            </table>
-            <div style="padding:12px 16px;font-size:11px;color:var(--text-secondary);border-top:0.5px solid var(--border)">Cuotas para prestación de servicios. Valores feb–jul 2026.</div>
-          </div>
-        </div>
-
-        <!-- Obligaciones y derechos -->
-        <div class="panel">
-          <div class="panel-header"><h2>Obligaciones y derechos</h2></div>
-          <div class="panel-body">
-            <div style="margin-bottom:12px"><div style="font-size:12px;font-weight:500;margin-bottom:4px">¿Qué incluye tu cuota?</div><div style="font-size:12px;color:var(--text-secondary);line-height:1.7">El monotributo unifica: <strong>impuesto integrado</strong> (reemplaza IVA + Ganancias), aportes al <strong>SIPA</strong> (jubilación) y cobertura de <strong>obra social</strong>. Es tu única obligación impositiva como monotributista.</div></div>
-            <div style="margin-bottom:12px"><div style="font-size:12px;font-weight:500;margin-bottom:4px">Recategorización</div><div style="font-size:12px;color:var(--text-secondary);line-height:1.7"><strong>Febrero y agosto</strong> de cada año, evaluando los últimos 12 meses. Si superás el límite sin recategorizarte, ARCA puede hacerlo de oficio con multas retroactivas.</div></div>
-            <div style="margin-bottom:12px"><div style="font-size:12px;font-weight:500;margin-bottom:4px">Exclusión del régimen</div><div style="font-size:12px;color:var(--text-secondary);line-height:1.7">Si tu facturación supera la categoría K (<strong>$94.805.682 anuales</strong>), debés pasar al régimen general.</div></div>
-            <div><div style="font-size:12px;font-weight:500;margin-bottom:4px">Bonificación disponible</div><div style="font-size:12px;color:var(--text-secondary);line-height:1.7">ARCA bonifica hasta el <strong>20% del impuesto integrado</strong> anual pagando en tiempo y forma por débito automático.</div></div>
-          </div>
-        </div>
-      </div>
-    </div>
-
     <!-- INFORME DE GESTIÓN -->
     <div id="page-informe" class="content" style="display:none">
       <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;flex-wrap:wrap">
@@ -995,9 +840,8 @@ const state_pagos = [
 ];
 state.pagos = state_pagos;
 
-const monoLimits = { D:22934610, E:26977793, F:33809379, G:40431835, H:61344853 };
-const pages = ['dashboard','cobros','gastos','flujo','pnl','balance','monotributo','informe'];
-const pageTitles = { dashboard:'Dashboard', cobros:'Ventas & Cobranzas', gastos:'Gastos & Pagos', flujo:'Cashflow', monotributo:'Monotributo', pnl:'P&L', balance:'Balance Sheet', informe:'Informe de Gestión' };
+const pages = ['dashboard','cobros','gastos','flujo','pnl','balance','informe'];
+const pageTitles = { dashboard:'Dashboard', cobros:'Ventas & Cobranzas', gastos:'Gastos & Pagos', flujo:'Cashflow', pnl:'P&L', balance:'Balance Sheet', informe:'Informe de Gestión' };
 
 function showPage(name) {
   pages.forEach(p => { const el=document.getElementById('page-'+p); if(el) el.style.display = p===name ? '' : 'none'; });
@@ -1010,7 +854,6 @@ function showPage(name) {
   if(name==='flujo') renderFlujo();
   if(name==='pnl') renderPnl();
   if(name==='balance') renderBalance();
-  if(name==='monotributo') renderMonotributo();
   if(name==='informe') renderInforme();
 }
 
@@ -1254,238 +1097,208 @@ function fmt(n) { return '$' + Math.round(n).toLocaleString('es-AR'); }
 function fmtK(n) { return n >= 1000000 ? '$' + (n/1000000).toFixed(1) + 'M' : '$' + Math.round(n/1000) + 'k'; }
 function pct(a,b) { return b ? (a/b*100).toFixed(1)+'%' : '—'; }
 
-let mainChartInst = null, donutInst = null;
+let mainChartInst = null, donutInst = null, dashSalesChartInst = null;
 let currentMainChart = 'trend';
 
 function renderDashboard() {
-  // Aggregate across all selected periods
-  let d;
-  if(selectedPeriods.size === 0) {
-    const n = new Date();
-    d = getDataForPeriod(n.getFullYear()+'-'+String(n.getMonth()+1).padStart(2,'0'));
-  } else if(selectedPeriods.size === 1) {
-    d = getDataForPeriod([...selectedPeriods][0]);
-  } else {
-    const parts = [...selectedPeriods].sort().map(p => getDataForPeriod(p));
-    d = {
-      rev: parts.reduce((s,p)=>s+(p.rev||0),0),
-      cogs: parts.reduce((s,p)=>s+(p.cogs||0),0),
-      opex: parts.reduce((s,p)=>s+(p.opex||0),0),
-      fiscal: parts.reduce((s,p)=>s+(p.fiscal||0),0),
-      cobrados: parts.reduce((s,p)=>s+(p.cobrados||0),0),
-      cxc: parts.reduce((s,p)=>s+(p.cxc||0),0),
-      totalPagado: parts.reduce((s,p)=>s+(p.totalPagado||0),0),
-      caja: parts[parts.length-1].caja || 0,
-    };
-  }
-  const activePeriod = selectedPeriods.size === 1 ? [...selectedPeriods][0] : null;
-  const gross = d.rev - d.cogs;
-  const ebitda = gross - d.opex;
-  const net = ebitda - d.fiscal;
-  const burnRate = d.opex + d.cogs + d.fiscal;
-  const monthCount = (activePeriod === 'ytd' || selectedPeriods.size > 1) ? selectedPeriods.size || 12 : 1;
-  const runway = d.caja > 0 && burnRate > 0 ? (d.caja / (burnRate / monthCount)).toFixed(1) : '—';
-  const dso = d.rev > 0 ? Math.round(d.cxc / (d.rev/30)) : 0;
-  const prevPeriod = activePeriod && activePeriod !== 'ytd' ? prevMonth(activePeriod) : null;
-  const prevD = prevPeriod ? getDataForPeriod(prevPeriod) : null;
-  const revDelta = prevD && prevD.rev > 0 ? Math.round((d.rev-prevD.rev)/prevD.rev*100) : null;
-
-  // ── Alerts
-  const alerts = [];
-  if(selectedClients && selectedClients.size > 0) alerts.push({ type:'info', msg: `Filtrando por ${selectedClients.size === 1 ? [...selectedClients][0] : selectedClients.size+' clientes'}` });
-  if(d.cxc > d.caja * 0.5 && (!selectedClients || selectedClients.size===0)) alerts.push({ type:'warn', msg: `Cuentas por cobrar (${fmtK(d.cxc)}) superan el 50% de tu caja` });
-  if(net < 0) alerts.push({ type:'danger', msg: 'Resultado neto negativo este período' });
-  if(d.pendiente > d.cobrado * 0.4 && d.cobrado > 0) alerts.push({ type:'warn', msg: `${fmtK(d.pendiente)} sin cobrar — más del 40% de lo facturado` });
-  if(!selectedClients || selectedClients.size===0) alerts.push({ type:'info', msg: `Monotributo cat. F — vence el 20/03/26: $129.710` });
-  document.getElementById('dash-alerts').innerHTML = alerts.slice(0,2).map(a =>
-    `<div class="alert alert-${a.type==='danger'?'warn':a.type}" style="margin:0;padding:7px 12px;font-size:11px">${a.msg}</div>`).join('');
-
-  // ── KPI: Rentabilidad
-  // ── Días promedio cobro y pago (filtrado por períodos activos)
   const filterByActivePeriods = arr => {
     if(selectedPeriods.size === 0) return arr;
-    if(selectedPeriods.has('ytd')) return arr;
+    if(selectedPeriods.has('ytd')) {
+      const yr = new Date().getFullYear();
+      return arr.filter(x => x.fecha && x.fecha.startsWith(yr));
+    }
     return arr.filter(x => x.fecha && selectedPeriods.has(x.fecha.substring(0,7)));
   };
 
-  // Días promedio de cobro: desde fecha emisión hasta fecha cobro (solo cobrados)
-  const cobradosFilt = filterByActivePeriods(state.cobros).filter(c => c.estado === 'cobrado' && c.fecha && c.fechaCobro);
-  const diasCobro = cobradosFilt.length
-    ? Math.round(cobradosFilt.reduce((s, c) => {
-        const diff = (new Date(c.fechaCobro) - new Date(c.fecha)) / (1000 * 60 * 60 * 24);
-        return s + Math.abs(diff);
-      }, 0) / cobradosFilt.length)
-    : null;
-
-  // Días promedio de pago: desde fecha gasto hasta fecha pago (solo pagados)
-  const pagadosFilt = filterByActivePeriods(state.gastos).filter(g => g.estado === 'pagado' && g.fecha && g.fechaPago);
-  const diasPago = pagadosFilt.length
-    ? Math.round(pagadosFilt.reduce((s, g) => {
-        const diff = (new Date(g.fechaPago) - new Date(g.fecha)) / (1000 * 60 * 60 * 24);
-        return s + Math.abs(diff);
-      }, 0) / pagadosFilt.length)
-    : null;
-
-  // Ticket promedio: revenue / cantidad de cobros del período
-  const cobrosDelPeriodo = filterByActivePeriods(state.cobros);
-  const ticketPromedio = cobrosDelPeriodo.length > 0 ? d.rev / cobrosDelPeriodo.length : null;
-
-  const kpiRent = [
-    { label:'Revenue', value: fmtK(d.rev), sub: revDelta !== null ? (revDelta>=0?'+':'')+revDelta+'% vs mes ant.' : '', cls: revDelta!==null?(revDelta>=0?'pos':'neg'):'' },
-    { label:'Net profit', value: fmtK(net), sub: 'Margen '+pct(net,d.rev), cls: net>=0?'pos':'neg' },
-    { label:'Ticket promedio', value: ticketPromedio !== null ? fmtK(ticketPromedio) : '—', sub: cobrosDelPeriodo.length ? cobrosDelPeriodo.length+' cobros en el período' : 'Sin cobros', cls: '' },
-    { label:'Días prom. cobro', value: diasCobro !== null ? diasCobro+' días' : '—', sub: cobradosFilt.length ? cobradosFilt.length+' cobros analizados' : 'Sin cobros cobrados', cls: diasCobro===null?'':diasCobro<=15?'pos':diasCobro<=30?'warn-c':'neg' },
-    { label:'Días prom. pago', value: diasPago !== null ? diasPago+' días' : '—', sub: pagadosFilt.length ? pagadosFilt.length+' pagos analizados' : 'Sin gastos pagados', cls: diasPago===null?'':diasPago<=15?'pos':diasPago<=30?'warn-c':'neg' },
-  ];
-  document.getElementById('kpi-rentabilidad').innerHTML = kpiRent.map(k =>
-    `<div class="metric-card" style="padding:12px 14px">
-      <div class="metric-label" style="font-size:11px">${k.label}</div>
-      <div class="metric-value ${k.cls}" style="font-size:18px">${k.value}</div>
-      ${k.sub ? `<div class="metric-sub ${k.cls}" style="font-size:10px">${k.sub}</div>` : ''}
-    </div>`).join('');
-
-  // ── KPI: Caja
-  const kpiCaja = [
-    { label:'Caja disponible', value: fmtK(d.caja), sub: 'Saldo estimado', cls:'' },
-    { label:'Cobrado', value: fmtK(d.cobrado), sub: pct(d.cobrado,d.rev)+' de lo facturado', cls:'pos' },
-    { label:'Pendiente de cobro', value: fmtK(d.pendiente), sub: dso+' días promedio cobro (DSO)', cls:'warn-c' },
-    { label:'Runway estimado', value: (activePeriod==='ytd'||selectedPeriods.size>1)?'—':runway+' meses', sub: 'Con costos actuales', cls: parseFloat(runway)<2?'neg':parseFloat(runway)<4?'warn-c':'pos' },
-  ];
-  document.getElementById('kpi-caja').innerHTML = kpiCaja.map(k =>
-    `<div class="metric-card" style="padding:12px 14px">
-      <div class="metric-label" style="font-size:11px">${k.label}</div>
-      <div class="metric-value ${k.cls}" style="font-size:18px">${k.value}</div>
-      ${k.sub ? `<div class="metric-sub ${k.cls}" style="font-size:10px">${k.sub}</div>` : ''}
-    </div>`).join('');
-
-  // ── Main chart
-  renderMainChart(currentMainChart);
-
-  // ── Donut costos — desde gastos reales del período
-  const donutMap = {};
-  d.gastos.forEach(g => { donutMap[g.cat] = (donutMap[g.cat]||0)+(g.monto||0); });
-  const donutColors = {'Sueldo empleado':'#3B8BD4','Pago freelancer':'#1D9E75','Alquiler':'#EF9F27','Software / herramientas':'#D85A30','Monotributo':'#8b5cf6','Servicios (luz, internet)':'#f59e0b','Equipamiento':'#ec4899','Otro':'#888'};
-  const costCats = Object.entries(donutMap).map(([k,v])=>({ label:k, val:v, color:donutColors[k]||'#888' })).filter(c=>c.val>0);
-  if(!costCats.length) costCats.push({ label:'Sin gastos', val:1, color:'#ddd' });
-  const totalCosts = costCats.reduce((s,c)=>s+c.val,0);
-  document.getElementById('donut-total').textContent = fmtK(totalCosts);
-  if(donutInst) { donutInst.destroy(); donutInst=null; }
-  const dCtx = document.getElementById('donutChart');
-  if(dCtx && window.Chart) {
-    donutInst = new Chart(dCtx, {
-      type:'doughnut',
-      data:{ datasets:[{ data:costCats.map(c=>c.val), backgroundColor:costCats.map(c=>c.color), borderWidth:0, hoverOffset:4 }] },
-      options:{ cutout:'68%', plugins:{ legend:{display:false}, tooltip:{ callbacks:{ label: ctx=>costCats[ctx.dataIndex].label+': '+fmtK(ctx.raw)+' ('+pct(ctx.raw,totalCosts)+')' } } }, animation:{ duration:400 } }
-    });
+  // Active months for chart/table columns
+  let activeMonths;
+  if(selectedPeriods.size === 0) {
+    activeMonths = lastNMonths(6);
+  } else if(selectedPeriods.has('ytd')) {
+    const yr = new Date().getFullYear();
+    const curM = new Date().getMonth();
+    activeMonths = Array.from({length: curM+1}, (_,i) => yr+'-'+String(i+1).padStart(2,'0'));
+  } else {
+    activeMonths = [...selectedPeriods].filter(p=>p!=='ytd').sort();
+    if(activeMonths.length === 0) activeMonths = lastNMonths(6);
   }
-  document.getElementById('donut-legend').innerHTML = costCats.map(c =>
-    `<div style="display:flex;align-items:center;justify-content:space-between;font-size:11px;margin-bottom:5px">
-      <span style="display:flex;align-items:center;gap:5px;color:var(--text-secondary)"><span style="width:7px;height:7px;border-radius:50%;background:${c.color};display:inline-block;flex-shrink:0"></span>${c.label}</span>
-      <span style="font-weight:500">${pct(c.val,totalCosts)}</span>
-    </div>`).join('');
 
-  // ── Helper: apply client filter to cobros
   const clientFilter = arr => selectedClients && selectedClients.size > 0
     ? arr.filter(c => selectedClients.has(c.client))
     : arr;
 
-  // ── Top clientes — filtrado por cliente seleccionado
-  const filteredCobros = clientFilter(state.cobros);
-  const clienteMap = {};
-  filteredCobros.forEach(c => {
-    if(!c.client) return;
-    clienteMap[c.client] = (clienteMap[c.client]||0) + (c.monto||0);
-  });
-  const clientes = Object.entries(clienteMap)
-    .map(([name,rev]) => ({name,rev}))
-    .sort((a,b)=>b.rev-a.rev)
-    .slice(0,5);
-  const maxRev = clientes.length ? clientes[0].rev : 1;
-  document.getElementById('top-clientes').innerHTML = clientes.length
-    ? clientes.map(c =>
-      `<div style="padding:6px 16px">
-        <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px">
-          <span style="font-weight:500">${c.name}</span><span style="color:var(--text-secondary)">${fmtK(c.rev)}</span>
-        </div>
-        <div style="background:var(--bg-secondary);border-radius:3px;height:4px;overflow:hidden">
-          <div style="width:${Math.round(c.rev/maxRev*100)}%;height:100%;background:#3B8BD4;border-radius:3px;transition:width 0.4s"></div>
-        </div>
-      </div>`).join('')
-    : '<div style="padding:16px;font-size:12px;color:var(--text-tertiary)">Sin cobros registrados aún</div>';
+  // ── Ventas KPIs
+  const cobrosFiltrados = clientFilter(filterByActivePeriods(state.cobros));
+  const totalVentas = cobrosFiltrados.reduce((s,c) => s+(c.monto||0), 0);
+  const cantVentas = cobrosFiltrados.length;
+  const ticketPromedio = cantVentas > 0 ? totalVentas / cantVentas : null;
 
-  // ── Gastos por categoría
-  const gastosByCat = {};
+  document.getElementById('dash-ventas-kpis').innerHTML = [
+    { label:'Ticket promedio', value: ticketPromedio !== null ? fmt(ticketPromedio) : '—', sub: cantVentas+' ventas en el período' },
+    { label:'Cantidad de ventas', value: String(cantVentas), sub: 'Total período seleccionado' },
+  ].map(k => `<div class="metric-card" style="padding:12px 14px">
+    <div class="metric-label" style="font-size:11px">${k.label}</div>
+    <div class="metric-value" style="font-size:22px">${k.value}</div>
+    <div class="metric-sub" style="font-size:10px">${k.sub}</div>
+  </div>`).join('');
+
+  // ── Sales line chart
+  const ventasPorMes = {};
+  activeMonths.forEach(m => { ventasPorMes[m] = 0; });
+  state.cobros.forEach(c => {
+    if(!c.fecha) return;
+    const ym = c.fecha.substring(0,7);
+    if(Object.prototype.hasOwnProperty.call(ventasPorMes, ym)) ventasPorMes[ym] += (c.monto||0);
+  });
+
+  const singleClient = selectedClients && selectedClients.size === 1 ? [...selectedClients][0] : null;
+  let clientVentasPorMes = null;
+  if(singleClient) {
+    clientVentasPorMes = {};
+    activeMonths.forEach(m => { clientVentasPorMes[m] = 0; });
+    state.cobros.filter(c => c.client === singleClient).forEach(c => {
+      if(!c.fecha) return;
+      const ym = c.fecha.substring(0,7);
+      if(Object.prototype.hasOwnProperty.call(clientVentasPorMes, ym)) clientVentasPorMes[ym] += (c.monto||0);
+    });
+  }
+
+  if(dashSalesChartInst) { dashSalesChartInst.destroy(); dashSalesChartInst = null; }
+  const salesCtx = document.getElementById('dashSalesChart');
+  if(salesCtx && window.Chart) {
+    const dark = matchMedia('(prefers-color-scheme: dark)').matches;
+    const gridColor = dark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)';
+    const tickColor = dark ? '#888' : '#aaa';
+    const datasets = [{
+      label: 'Total ventas',
+      data: activeMonths.map(m => ventasPorMes[m]),
+      borderColor: '#1D9E75',
+      backgroundColor: 'rgba(29,158,117,0.08)',
+      tension: 0.3,
+      fill: true,
+      pointRadius: 3,
+      pointHoverRadius: 5,
+    }];
+    if(clientVentasPorMes) {
+      datasets.push({
+        label: singleClient,
+        data: activeMonths.map(m => clientVentasPorMes[m]),
+        borderColor: '#3B8BD4',
+        backgroundColor: 'transparent',
+        tension: 0.3,
+        fill: false,
+        pointRadius: 3,
+        pointHoverRadius: 5,
+        borderDash: [5, 3],
+      });
+    }
+    dashSalesChartInst = new Chart(salesCtx, {
+      type: 'line',
+      data: { labels: activeMonths.map(monthLabel), datasets },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { display: datasets.length > 1, position: 'top', labels: { font: { size: 10 }, color: tickColor } },
+          tooltip: { callbacks: { label: ctx => ctx.dataset.label+': $'+Math.round(ctx.raw).toLocaleString('es-AR') } }
+        },
+        scales: {
+          x: { grid: { color: gridColor }, ticks: { color: tickColor, font: { size: 10 } } },
+          y: { grid: { color: gridColor }, ticks: { color: tickColor, font: { size: 10 }, callback: v => fmtK(v) } }
+        }
+      }
+    });
+  }
+
+  // ── Cobros pendientes
+  const pendientesFiltrados = clientFilter(state.cobros.filter(c => c.estado !== 'cobrado'));
+  const today = new Date();
+  const daysSince = fecha => {
+    if(!fecha) return null;
+    return Math.round((today - new Date(fecha)) / (1000*60*60*24));
+  };
+  const pendEl = document.getElementById('dash-pendientes-cobros');
+  if(pendEl) {
+    if(!pendientesFiltrados.length) {
+      pendEl.innerHTML = '<div style="padding:16px;font-size:12px;color:var(--text-tertiary);text-align:center">Sin cobros pendientes 🎉</div>';
+    } else {
+      const sorted = [...pendientesFiltrados].sort((a,b) => (daysSince(b.fecha)||0) - (daysSince(a.fecha)||0));
+      let html = '<table class="data-table"><thead><tr><th>Cliente</th><th>Descripción</th><th>Fecha</th><th>Días pendiente</th><th style="text-align:right">Monto</th></tr></thead><tbody>';
+      sorted.forEach(c => {
+        const dias = daysSince(c.fecha);
+        const diasStyle = dias === null ? '' : dias > 60 ? 'color:#D85A30;font-weight:600' : dias > 30 ? 'color:#EF9F27;font-weight:500' : 'color:var(--text-secondary)';
+        html += `<tr>
+          <td style="font-weight:500">${c.client||'—'}</td>
+          <td style="color:var(--text-secondary)">${c.desc||'—'}</td>
+          <td style="color:var(--text-tertiary)">${fmtDate(c.fecha)}</td>
+          <td style="${diasStyle}">${dias !== null ? dias+' días' : '—'}</td>
+          <td style="text-align:right;font-weight:500;color:#F5A623">${fmt(c.monto)}</td>
+        </tr>`;
+      });
+      html += '</tbody></table>';
+      pendEl.innerHTML = html;
+    }
+  }
+
+  // ── Gastos por categoría × mes
+  const gastosMap = {};
+  PNL_CONCEPTOS.forEach(c => { gastosMap[c] = {}; activeMonths.forEach(m => { gastosMap[c][m] = 0; }); });
   state.gastos.forEach(g => {
-    if(!g.cat) return;
-    gastosByCat[g.cat] = (gastosByCat[g.cat]||0) + (g.monto||0);
+    if(!g.fecha || !PNL_CONCEPTOS.includes(g.concepto)) return;
+    const ym = g.fecha.substring(0,7);
+    if(gastosMap[g.concepto] && Object.prototype.hasOwnProperty.call(gastosMap[g.concepto], ym))
+      gastosMap[g.concepto][ym] += (g.monto||0);
   });
-  const gastoCats = Object.entries(gastosByCat).sort((a,b)=>b[1]-a[1]).slice(0,5);
-  const maxGasto = gastoCats.length ? gastoCats[0][1] : 1;
-  const catColors = {'Sueldo empleado':'#3B8BD4','Pago freelancer':'#1D9E75','Alquiler':'#EF9F27','Software / herramientas':'#D85A30','Monotributo':'#8b5cf6'};
 
-  // ── CxC — filtrado por cliente
-  const cxcItems = clientFilter(state.cobros).filter(c=>c.estado==='pendiente');
-  const totalCxC = cxcItems.reduce((s,c)=>s+c.monto,0);
-  document.getElementById('dash-cxc').innerHTML = cxcItems.map(c =>
-    `<div style="padding:6px 16px;border-bottom:0.5px solid var(--border)">
-      <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:1px">
-        <span style="font-weight:500">${c.client}</span>
-        <span class="warn-c" style="font-weight:500">${fmtK(c.monto)}</span>
-      </div>
-      <div style="font-size:10px;color:var(--text-tertiary)">${c.desc}</div>
-    </div>`).join('') +
-    `<div style="padding:8px 16px;display:flex;justify-content:space-between;font-size:12px;font-weight:500;border-top:0.5px solid var(--border-md)">
-      <span>Total pendiente</span><span class="warn-c">${fmtK(totalCxC)}</span>
-    </div>`;
+  let gastosHtml = '<table class="data-table"><thead><tr><th>Categoría</th>';
+  activeMonths.forEach(m => { gastosHtml += `<th style="text-align:right">${monthLabel(m)}</th>`; });
+  gastosHtml += '<th style="text-align:right">Total</th></tr></thead><tbody>';
 
-  // ── Me deben / Debo — filtrado por período Y cliente
-  const activePeriodKeys = [...selectedPeriods];
-  const filterByPeriod = arr => activePeriodKeys.length === 0 || activePeriodKeys.includes('ytd')
-    ? arr
-    : arr.filter(x => x.fecha && activePeriodKeys.includes(x.fecha.substring(0,7)));
+  let hasAnyRow = false;
+  PNL_CONCEPTOS.forEach(concepto => {
+    const vals = activeMonths.map(m => gastosMap[concepto][m]);
+    const total = vals.reduce((s,v) => s+v, 0);
+    if(total === 0) return;
+    hasAnyRow = true;
+    const nonZero = vals.filter(v => v > 0);
+    const avg = nonZero.length > 0 ? nonZero.reduce((s,v) => s+v, 0) / nonZero.length : 0;
+    gastosHtml += `<tr><td style="font-weight:500">${concepto}</td>`;
+    vals.forEach(v => {
+      const hl = avg > 0 && v > avg ? 'background:rgba(216,90,48,0.12);' : '';
+      gastosHtml += `<td style="text-align:right;${hl}">${v > 0 ? fmt(v) : '<span style="color:var(--text-tertiary)">—</span>'}</td>`;
+    });
+    gastosHtml += `<td style="text-align:right;font-weight:500">${fmt(total)}</td></tr>`;
+  });
 
-  // Me deben: cobros pendientes del período y cliente filtrado
-  const meDeben = filterByPeriod(clientFilter(state.cobros)).filter(c => c.estado === 'pendiente');
-  const totalMeDeben = meDeben.reduce((s,c) => s + (c.monto||0), 0);
-  const elMeDebenTotal = document.getElementById('dash-me-deben-total');
-  const elMeDebenList = document.getElementById('dash-me-deben-list');
-  if(elMeDebenTotal) elMeDebenTotal.innerHTML = `
-    <div style="display:flex;justify-content:space-between;align-items:center">
-      <span style="font-size:11px;color:var(--text-secondary)">${meDeben.length} cobro${meDeben.length!==1?'s':''} pendiente${meDeben.length!==1?'s':''}</span>
-      <span style="font-size:18px;font-weight:500;color:#F5A623">${fmt(totalMeDeben)}</span>
-    </div>`;
-  if(elMeDebenList) elMeDebenList.innerHTML = meDeben.length
-    ? meDeben.map(c => `<div style="padding:8px 16px;border-bottom:0.5px solid var(--border);display:flex;justify-content:space-between;align-items:center">
-        <div>
-          <div style="font-size:12px;font-weight:500">${c.client||'—'}</div>
-          <div style="font-size:10px;color:var(--text-tertiary)">${c.desc||''} · ${fmtDate(c.fecha)}</div>
-        </div>
-        <span style="font-size:12px;font-weight:500;color:#F5A623">${fmt(c.monto)}</span>
-      </div>`).join('')
-    : '<div style="padding:16px;font-size:12px;color:var(--text-tertiary);text-align:center">Sin cobros pendientes 🎉</div>';
+  if(!hasAnyRow) {
+    gastosHtml += `<tr><td colspan="${activeMonths.length+2}" style="text-align:center;color:var(--text-tertiary);padding:16px">Sin gastos registrados en el período</td></tr>`;
+  } else {
+    const totalesPorMes = activeMonths.map(m => PNL_CONCEPTOS.reduce((s,c) => s+(gastosMap[c][m]||0), 0));
+    const totalTotal = totalesPorMes.reduce((s,v) => s+v, 0);
+    gastosHtml += `<tr style="font-weight:600;border-top:0.5px solid var(--border-md)"><td>Total costos</td>`;
+    totalesPorMes.forEach(v => { gastosHtml += `<td style="text-align:right">${v > 0 ? fmt(v) : '—'}</td>`; });
+    gastosHtml += `<td style="text-align:right">${fmt(totalTotal)}</td></tr>`;
+  }
+  gastosHtml += '</tbody></table>';
 
-  // Debo: gastos pendientes del período filtrado
-  const debo = filterByPeriod(state.gastos).filter(g => g.estado === 'pendiente');
-  const totalDebo = debo.reduce((s,g) => s + (g.monto||0), 0);
-  const elDeboTotal = document.getElementById('dash-debo-total');
-  const elDeboList = document.getElementById('dash-debo-list');
-  if(elDeboTotal) elDeboTotal.innerHTML = `
-    <div style="display:flex;justify-content:space-between;align-items:center">
-      <span style="font-size:11px;color:var(--text-secondary)">${debo.length} gasto${debo.length!==1?'s':''} pendiente${debo.length!==1?'s':''}</span>
-      <span style="font-size:18px;font-weight:500" class="neg">${fmt(totalDebo)}</span>
-    </div>`;
-  if(elDeboList) elDeboList.innerHTML = debo.length
-    ? debo.map(g => `<div style="padding:8px 16px;border-bottom:0.5px solid var(--border);display:flex;justify-content:space-between;align-items:center">
-        <div>
-          <div style="font-size:12px;font-weight:500">${g.concepto||g.desc||'—'}</div>
-          <div style="font-size:10px;color:var(--text-tertiary)">${g.desc||''} · ${fmtDate(g.fecha)}</div>
-        </div>
-        <span style="font-size:12px;font-weight:500" class="neg">-${fmt(g.monto)}</span>
-      </div>`).join('')
-    : '<div style="padding:16px;font-size:12px;color:var(--text-tertiary);text-align:center">Sin gastos pendientes 🎉</div>';
+  const gastosEvoEl = document.getElementById('dash-gastos-evo');
+  if(gastosEvoEl) gastosEvoEl.innerHTML = gastosHtml;
 
-  // ── Recent
-  renderRecent();
+  // ── Costos KPIs
+  const gastosDelPeriodo = filterByActivePeriods(state.gastos);
+  const totalCostos = gastosDelPeriodo.filter(g => PNL_CONCEPTOS.includes(g.concepto)).reduce((s,g) => s+(g.monto||0), 0);
+  const totalCostosExclExtra = gastosDelPeriodo.filter(g => PNL_CONCEPTOS.includes(g.concepto) && g.concepto !== 'Extraordinarios').reduce((s,g) => s+(g.monto||0), 0);
+  const costoPromedio = cantVentas > 0 ? totalCostos / cantVentas : null;
+  const costoPromedioExcl = cantVentas > 0 ? totalCostosExclExtra / cantVentas : null;
+
+  document.getElementById('dash-costos-kpis').innerHTML = [
+    { label:'Costo promedio por venta', value: costoPromedio !== null ? fmt(costoPromedio) : '—', sub: 'Total costos / cantidad de ventas' },
+    { label:'Costo promedio (excl. extraordinarios)', value: costoPromedioExcl !== null ? fmt(costoPromedioExcl) : '—', sub: 'Excluye gastos extraordinarios' },
+  ].map(k => `<div class="metric-card" style="padding:12px 14px">
+    <div class="metric-label" style="font-size:11px">${k.label}</div>
+    <div class="metric-value" style="font-size:22px">${k.value}</div>
+    <div class="metric-sub" style="font-size:10px">${k.sub}</div>
+  </div>`).join('');
 }
 
 // ─── Chart period selector ────────────────────────────────────────
@@ -3952,232 +3765,6 @@ function renderPagos() {
     '<tr><td colspan="7" style="color:var(--text-tertiary);text-align:center;padding:16px">No hay pagos registrados</td></tr>';
 }
 
-// ─── Monotributo ─────────────────────────────────────────────────
-// Datos ARCA feb 2026 — prestación de servicios
-const MONO_CATS = [
-  { cat:'A', limite:6957000,  cuota:24013,  impuesto:6089,  sipa:23165, obraSocial:8517 },
-  { cat:'B', limite:10247000, cuota:36761,  impuesto:18837, sipa:23165, obraSocial:8517 },
-  { cat:'C', limite:14389000, cuota:55754,  impuesto:34237, sipa:23165, obraSocial:8517 },
-  { cat:'D', limite:17870000, cuota:76929,  impuesto:42605, sipa:23165, obraSocial:8517 },
-  { cat:'E', limite:21023000, cuota:96612,  impuesto:54930, sipa:23165, obraSocial:8517 },
-  { cat:'F', limite:26307000, cuota:112487, impuesto:69805, sipa:23165, obraSocial:8517 },
-  { cat:'G', limite:31030000, cuota:136163, impuesto:93481, sipa:23165, obraSocial:8517 },
-  { cat:'H', limite:47500000, cuota:204877, impuesto:161695,sipa:23165, obraSocial:8517 },
-  { cat:'I', limite:56800000, cuota:273787, impuesto:230605,sipa:23165, obraSocial:8517 },
-  { cat:'J', limite:68100000, cuota:344065, impuesto:300883,sipa:23165, obraSocial:8517 },
-  { cat:'K', limite:94806000, cuota:433696, impuesto:390514,sipa:23165, obraSocial:8517 },
-];
-
-// Categoría activa — default F
-let monoSelectedCat = 'F';
-function getMonoCat() { return MONO_CATS.find(c => c.cat === monoSelectedCat) || MONO_CATS[5]; }
-// Mantener compatibilidad
-const MONO_CAT_F = MONO_CATS[5];
-const MONO_MONTHS = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
-
-// Load monoPagos from localStorage
-let monoPagos = {};
-try {
-  const saved = localStorage.getItem('monoPagos');
-  if(saved) monoPagos = JSON.parse(saved);
-} catch(e) {}
-
-function saveMonoPagos() {
-  try { localStorage.setItem('monoPagos', JSON.stringify(monoPagos)); } catch(e) {}
-}
-
-function selectMonoCat(cat) {
-  monoSelectedCat = cat;
-  renderMonotributo();
-}
-
-function updateMonoF() { renderMonotributo(); }
-
-function renderMonotributo() {
-  const now = new Date();
-  const currentYear = now.getFullYear();
-  const currentMonth = now.getMonth();
-
-  // Render category selector buttons
-  const sel = document.getElementById('mono-cat-selector');
-  if(sel) {
-    sel.innerHTML = MONO_CATS.map(c => `
-      <button onclick="selectMonoCat('${c.cat}')"
-        style="padding:4px 12px;font-size:12px;border-radius:var(--radius-md);cursor:pointer;
-        border:0.5px solid var(--border-md);font-weight:500;
-        background:${c.cat===monoSelectedCat?'var(--text-primary)':'var(--bg-primary)'};
-        color:${c.cat===monoSelectedCat?'var(--bg-primary)':'var(--text-secondary)'}">
-        ${c.cat}
-      </button>`).join('');
-  }
-
-  const cat = getMonoCat();
-  const limite = cat.limite;
-  const fmt$ = n => '$' + Math.round(n).toLocaleString('es-AR');
-
-  // Update dynamic title
-  const sitTitle = document.getElementById('mono-situacion-title');
-  if(sitTitle) sitTitle.textContent = `Tu situación — categoría ${cat.cat}`;
-
-  // Facturación YTD
-  const facturadoYtd = state.cobros
-    .filter(c => c.fecha && c.fecha.startsWith(currentYear))
-    .reduce((s,c) => s + (c.monto||0), 0);
-
-  const monthsElapsed = currentMonth + 1;
-  const promMensual = monthsElapsed > 0 ? facturadoYtd / monthsElapsed : 0;
-  const proyAnual = Math.round(promMensual * 12);
-
-  const pct = Math.min(100, facturadoYtd / limite * 100);
-  const restante = Math.max(0, limite - facturadoYtd);
-
-  // ── Year label
-  const yearLbl = document.getElementById('mono-year-label');
-  if(yearLbl) yearLbl.textContent = currentYear;
-
-  // ── KPI cards
-  const kpis = document.getElementById('mono-kpis');
-  if(kpis) {
-    const statusColor = pct > 85 ? 'neg' : pct > 65 ? 'warn-c' : 'pos';
-    kpis.innerHTML = [
-      { label:'Facturado YTD', val:fmt$(facturadoYtd), sub:(currentMonth+1)+' meses / '+MONO_MONTHS[currentMonth], cls:statusColor },
-      { label:'Restante para límite F', val:fmt$(restante), sub:pct.toFixed(1)+'% consumido', cls:restante<500000?'neg':'' },
-      { label:'Cuota mensual', val:fmt$(cat.cuota), sub:'Cat. '+cat.cat+' — feb 2026', cls:'' },
-      { label:'Proyección anual', val:fmt$(proyAnual), sub:proyAnual>limite?'⚠ Supera límite F':'Dentro del límite F', cls:proyAnual>limite?'neg':'pos' },
-    ].map(k=>`<div class="metric-card" style="padding:12px 14px">
-      <div class="metric-label" style="font-size:11px">${k.label}</div>
-      <div class="metric-value ${k.cls}" style="font-size:18px">${k.val}</div>
-      <div class="metric-sub" style="font-size:10px;color:var(--text-tertiary)">${k.sub}</div>
-    </div>`).join('');
-  }
-
-  // ── Alert
-  const alertWrap = document.getElementById('mono-alert-wrap');
-  if(alertWrap) {
-    if(pct >= 90) {
-      alertWrap.innerHTML = `<div class="alert alert-warn">⚠ Superaste el 90% del límite de categoría F — debés prepararte para recategorizarte a G en la próxima recategorización (agosto ${currentYear}).</div>`;
-    } else if(proyAnual > limite) {
-      alertWrap.innerHTML = `<div class="alert alert-warn">📈 A este ritmo de facturación, la proyección anual supera el límite de categoría F. Revisá tu situación antes de agosto.</div>`;
-    } else if(pct >= 70) {
-      alertWrap.innerHTML = `<div class="alert alert-info">Estás en zona de atención — llevás el ${pct.toFixed(0)}% del límite anual. Seguí de cerca tu facturación.</div>`;
-    } else {
-      alertWrap.innerHTML = '';
-    }
-  }
-
-  // ── Situación panel
-  const sit = document.getElementById('mono-situacion');
-  if(sit) sit.innerHTML = [
-    { label:'Límite anual cat. F', val:fmt$(limite) },
-    { label:'Cuota mensual', val:fmt$(cat.cuota) },
-    { label:'Impuesto integrado', val:fmt$(cat.impuesto) },
-    { label:'Aporte SIPA', val:fmt$(cat.sipa) },
-    { label:'Obra social', val:fmt$(cat.obraSocial) },
-    { label:'Próx. recategorización', val: now.getMonth() < 7 ? `Agosto ${currentYear}` : `Febrero ${currentYear+1}` },
-  ].map(r=>`<div><div style="font-size:11px;color:var(--text-secondary)">${r.label}</div><div style="font-size:14px;font-weight:500">${r.val}</div></div>`).join('');
-
-  // ── Limit bar
-  const bar = document.getElementById('mono-limit-bar');
-  const barLbl = document.getElementById('mono-limit-label');
-  if(bar) {
-    bar.style.width = pct.toFixed(1) + '%';
-    bar.style.background = pct > 85 ? 'var(--danger-text)' : pct > 65 ? '#F5A623' : '#1D9E75';
-  }
-  if(barLbl) barLbl.textContent = fmt$(facturadoYtd) + ' de ' + fmt$(limite) + ' (' + pct.toFixed(1) + '%)';
-
-  // ── Proyección panel
-  const proy = document.getElementById('mono-proyeccion');
-  if(proy) {
-    const cuotasRestantes = 12 - monthsElapsed;
-    const costoFiscalAnual = cat.cuota * 12;
-    const costoFiscalYtd = cat.cuota * monthsElapsed;
-    proy.innerHTML = `
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
-        <div><div style="font-size:11px;color:var(--text-secondary);margin-bottom:2px">Promedio mensual facturado</div><div style="font-size:14px;font-weight:500">${fmt$(promMensual)}</div></div>
-        <div><div style="font-size:11px;color:var(--text-secondary);margin-bottom:2px">Proyección a 12 meses</div><div style="font-size:14px;font-weight:500 ${proyAnual>limite?'neg':''}">${fmt$(proyAnual)}</div></div>
-        <div><div style="font-size:11px;color:var(--text-secondary);margin-bottom:2px">Carga fiscal YTD</div><div style="font-size:14px;font-weight:500">${fmt$(costoFiscalYtd)}</div></div>
-        <div><div style="font-size:11px;color:var(--text-secondary);margin-bottom:2px">Carga fiscal anual est.</div><div style="font-size:14px;font-weight:500">${fmt$(costoFiscalAnual)}</div></div>
-      </div>
-      <div style="margin-top:12px;padding-top:10px;border-top:0.5px solid var(--border);font-size:11px;color:var(--text-tertiary)">
-        Basado en ${monthsElapsed} mes${monthsElapsed>1?'es':''} de facturación real. No soy contador — consultá a tu asesor fiscal.
-      </div>`;
-  }
-
-  // ── Tabla de categorías — highlight la actual y la proyectada
-  const catTbody = document.getElementById('mono-cat-tbody');
-  if(catTbody) {
-    catTbody.innerHTML = MONO_CATS.map(c => {
-      const isCurrent = c.cat === 'F';
-      const isProyected = proyAnual > c.limite && c !== MONO_CATS[MONO_CATS.length-1] && proyAnual <= (MONO_CATS[MONO_CATS.indexOf(c)+1]?.limite || Infinity);
-      const bg = isCurrent ? 'background:var(--info-bg)' : '';
-      const color = isCurrent ? 'color:var(--info-text);font-weight:500' : '';
-      const label = isCurrent ? `${c.cat} ← vos` : c.cat;
-      return `<tr style="${bg}"><td style="${color}">${label}</td>
-        <td style="text-align:right;${color}">${fmt$(c.limite)}</td>
-        <td style="text-align:right;${color}">${fmt$(c.cuota)}</td></tr>`;
-    }).join('');
-  }
-
-  // ── Vencimientos dinámicos
-  const vencTbody = document.getElementById('mono-venc-tbody');
-  if(!vencTbody) return;
-  vencTbody.innerHTML = MONO_MONTHS.map((mes, m) => {
-    const venceDay = 20;
-    const venceDate = new Date(currentYear, m, venceDay);
-    const today2 = now;
-    const key = `${currentYear}-${String(m+1).padStart(2,'0')}`;
-
-    // Determine status
-    let estado, estadoHtml, rowStyle = '';
-    if(monoPagos[key] === 'pagado') {
-      estado = 'pagado';
-      estadoHtml = `<span class="status-pill st-pagado">Pagado</span>`;
-      rowStyle = '';
-    } else if(m > currentMonth) {
-      estado = 'futuro';
-      estadoHtml = `<span class="status-pill" style="background:var(--bg-secondary);color:var(--text-tertiary)">Futuro</span>`;
-    } else if(m === currentMonth) {
-      if(today2 <= venceDate) {
-        estado = 'pendiente';
-        estadoHtml = `<span class="status-pill st-pendiente">Pendiente</span>`;
-        rowStyle = 'background:var(--warning-bg)';
-      } else {
-        estado = 'vencido';
-        estadoHtml = `<span class="status-pill" style="background:var(--danger-bg);color:var(--danger-text)">Vencido</span>`;
-        rowStyle = 'background:var(--danger-bg)';
-      }
-    } else {
-      // Past month — check if marked as paid
-      estado = monoPagos[key] || 'no-registrado';
-      estadoHtml = `<span class="status-pill" style="background:var(--danger-bg);color:var(--danger-text)">No registrado</span>`;
-      rowStyle = '';
-    }
-
-    const venceFmt = `${venceDay}/${String(m+1).padStart(2,'0')}/${String(currentYear).slice(2)}`;
-    const toggleBtn = estado !== 'futuro'
-      ? `<button onclick="toggleMonoPago('${key}')" style="font-size:11px;padding:3px 8px;border-radius:var(--radius-md);border:0.5px solid var(--border-md);background:var(--bg-primary);color:var(--text-secondary);cursor:pointer">${estado==='pagado'?'Desmarcar':'Marcar pagado'}</button>`
-      : `<span style="color:var(--text-tertiary);font-size:11px">—</span>`;
-
-    const bold = m === currentMonth ? 'font-weight:500' : '';
-    return `<tr style="${rowStyle}">
-      <td style="padding:7px 12px;${bold}">${mes} ${currentYear}</td>
-      <td style="text-align:right;padding:7px 12px;${bold}">${fmt$(cat.cuota)}</td>
-      <td style="padding:7px 12px">${venceFmt}</td>
-      <td style="padding:7px 12px">${estadoHtml}</td>
-      <td style="padding:7px 12px">${toggleBtn}</td>
-    </tr>`;
-  }).join('');
-}
-
-function toggleMonoPago(key) {
-  if(monoPagos[key] === 'pagado') delete monoPagos[key];
-  else monoPagos[key] = 'pagado';
-  saveMonoPagos();
-  renderMonotributo();
-}
-
-
-
 function filterER(period, el) {
   document.querySelectorAll('#page-resultado .tab').forEach(t=>t.classList.remove('active'));
   el.classList.add('active');
@@ -4422,7 +4009,7 @@ function renderInformeContent() {
   const evoTable = `<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12px">
     <thead><tr style="background:var(--bg-secondary)">
       <th style="${thSt};min-width:190px">Concepto</th>
-      ${evoMs.map((em,i)=>`<th style="${thR}${i===5?';border-left:2px solid var(--border-md);color:var(--text-primary)':''}">${i===5?'<b>':''}${INF_MONTHS[parseInt(em.substring(5,7))-1].substring(0,3)}<br><span style="font-weight:400;font-size:10px">${em.substring(0,4)}</span>${i===5?'</b>':''}</th>`).join('')}
+      ${evoMs.map((em,i)=>`<th style="${thR}${i===5?';border-left:2px solid var(--border-md);color:var(--text-primary)':''}">${i===5?'<b>':''}${INF_MONTHS[parseInt(em.substring(5,7))-1].substring(0,3)} ${em.substring(0,4)}${i===5?'</b>':''}</th>`).join('')}
       <th style="${thC}">Var.</th>
     </tr></thead><tbody>
     ${PNL_CONCEPTOS.map(c => {
