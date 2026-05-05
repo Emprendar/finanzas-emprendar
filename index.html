@@ -1840,13 +1840,13 @@ function renderPnlTable() {
     kpis.innerHTML =
       [
         { label:'Ticket Promedio', val: cantVentas > 0 ? fmtPesos(ticketProm) : '—', sub:'ventas / cantidad de ventas', cls:'' },
-        { label:'Costo Promedio', val: cantVentas > 0 ? fmtPesos(costoProm) : '—', sub:'costos totales / cantidad de ventas', cls:'neg' },
+        { label:'Costo Promedio', val: cantVentas > 0 ? fmtPesos(-costoProm) : '—', sub:'costos totales / cantidad de ventas', cls:'neg' },
         { label:'Margen Promedio', val: cantVentas > 0 ? fmtPesos(margenProm) : '—', sub:'resultado neto / cantidad de ventas', cls: margenProm >= 0 ? 'pos' : 'neg' },
         { label:'Cantidad de ventas', val: cantVentas, sub: periods.length > 0 ? 'en el período seleccionado' : 'total', cls:'' },
       ].map(kpiCard).join('') +
       `<div style="grid-column:1/-1;border-top:0.5px solid var(--border);margin:4px 0"></div>` +
       [
-        { label:'Costo Promedio (ex. Extraordinarios)', val: cantVentas > 0 ? fmtPesos(costoPromExExt) : '—', sub:'(costos − extraordinarios) / cant. ventas', cls:'neg' },
+        { label:'Costo Promedio (ex. Extraordinarios)', val: cantVentas > 0 ? fmtPesos(-costoPromExExt) : '—', sub:'(costos − extraordinarios) / cant. ventas', cls:'neg' },
         { label:'Margen Promedio (ex. Extraordinarios)', val: cantVentas > 0 ? fmtPesos(margenPromExExt) : '—', sub:'(resultado neto − extraordinarios) / cant. ventas', cls: margenPromExExt >= 0 ? 'pos' : 'neg' },
       ].map(kpiCard).join('');
   }
