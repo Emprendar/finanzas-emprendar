@@ -247,20 +247,16 @@
         <!-- KPIs ventas -->
         <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-bottom:16px" id="dash-ventas-kpis"></div>
 
-        <!-- Ticket por cliente vs promedio -->
-        <div class="panel" style="margin-bottom:16px">
-          <div class="panel-header">
-            <h2>Ticket promedio por cliente</h2>
-            <span style="font-size:11px;color:var(--text-tertiary)">vs promedio general</span>
-          </div>
-          <div class="panel-body" style="padding:12px 16px">
-            <div style="position:relative;height:200px"><canvas id="dashTicketChart"></canvas></div>
-          </div>
-        </div>
-
         <!-- Evolución de ventas -->
         <div class="panel" style="margin-bottom:16px">
-          <div class="panel-header"><h2>Evolución de ventas</h2></div>
+          <div class="panel-header">
+            <h2>Evolución de ventas</h2>
+            <select id="dash-sales-mode" onchange="setDashSalesMode(this.value)"
+              style="font-size:11px;padding:4px 8px;border:0.5px solid var(--border-md);border-radius:var(--radius-md);background:var(--bg-primary);color:var(--text-secondary);cursor:pointer">
+              <option value="facturacion">Facturación</option>
+              <option value="ticket">Ticket Promedio</option>
+            </select>
+          </div>
           <div class="panel-body" style="padding:12px 16px">
             <div style="position:relative;height:180px"><canvas id="dashSalesChart"></canvas></div>
           </div>
@@ -1107,7 +1103,9 @@ function fmt(n) { return '$' + Math.round(n).toLocaleString('es-AR'); }
 function fmtK(n) { return n >= 1000000 ? '$' + (n/1000000).toFixed(1) + 'M' : '$' + Math.round(n/1000) + 'k'; }
 function pct(a,b) { return b ? (a/b*100).toFixed(1)+'%' : '—'; }
 
-let mainChartInst = null, donutInst = null, dashSalesChartInst = null, dashTicketChartInst = null;
+let mainChartInst = null, donutInst = null, dashSalesChartInst = null;
+let dashSalesMode = 'facturacion';
+function setDashSalesMode(v) { dashSalesMode = v; renderDashboard(); }
 let currentMainChart = 'trend';
 
 function renderDashboard() {
@@ -1162,113 +1160,35 @@ function renderDashboard() {
   });
 
   const singleClient = selectedClients && selectedClients.size === 1 ? [...selectedClients][0] : null;
-  let clientVentasPorMes = null;
-  if(singleClient) {
-    clientVentasPorMes = {};
-    activeMonths.forEach(m => { clientVentasPorMes[m] = 0; });
-    state.cobros.filter(c => c.client === singleClient).forEach(c => {
-      if(!c.fecha) return;
-      const ym = c.fecha.substring(0,7);
-      if(Object.prototype.hasOwnProperty.call(clientVentasPorMes, ym)) clientVentasPorMes[ym] += (c.monto||0);
-    });
-  }
 
-  // ── Ticket por cliente vs promedio general
-  const ticketByClient = {};
-  const countByClient = {};
-  cobrosFiltrados.forEach(c => {
-    if(!c.client) return;
-    ticketByClient[c.client] = (ticketByClient[c.client]||0) + (c.monto||0);
-    countByClient[c.client] = (countByClient[c.client]||0) + 1;
-  });
-  const clientTickets = Object.keys(ticketByClient)
-    .map(cl => ({ cl, ticket: ticketByClient[cl] / countByClient[cl] }))
-    .sort((a,b) => b.ticket - a.ticket);
-
-  if(dashTicketChartInst) { dashTicketChartInst.destroy(); dashTicketChartInst = null; }
-  const ticketCtx = document.getElementById('dashTicketChart');
-  if(ticketCtx && window.Chart && clientTickets.length) {
-    const dark = matchMedia('(prefers-color-scheme: dark)').matches;
-    const gridColor = dark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)';
-    const tickColor = dark ? '#888' : '#aaa';
-    const avg = ticketPromedio || 0;
-    const barColors = clientTickets.map(c => c.ticket >= avg ? '#1D9E75' : '#D85A30');
-    dashTicketChartInst = new Chart(ticketCtx, {
-      type: 'bar',
-      data: {
-        labels: clientTickets.map(c => c.cl),
-        datasets: [
-          {
-            type: 'bar',
-            label: 'Ticket promedio',
-            data: clientTickets.map(c => c.ticket),
-            backgroundColor: barColors,
-            borderRadius: 4,
-            borderSkipped: false,
-            order: 2,
-          },
-          {
-            type: 'line',
-            label: 'Promedio general',
-            data: clientTickets.map(() => avg),
-            borderColor: '#888',
-            borderWidth: 1.5,
-            borderDash: [5, 3],
-            pointRadius: 0,
-            fill: false,
-            order: 1,
-          }
-        ]
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: {
-          legend: { display: true, position: 'top', labels: { font: { size: 10 }, color: tickColor,
-            filter: item => item.text === 'Promedio general' } },
-          tooltip: { callbacks: { label: ctx => ctx.dataset.type === 'line'
-            ? 'Promedio: $'+Math.round(ctx.raw).toLocaleString('es-AR')
-            : '$'+Math.round(ctx.raw).toLocaleString('es-AR') } }
-        },
-        scales: {
-          x: { grid: { display: false }, ticks: { color: tickColor, font: { size: 10 } } },
-          y: { grid: { color: gridColor }, ticks: { color: tickColor, font: { size: 10 }, callback: v => fmtK(v) } }
-        }
-      }
-    });
-  } else if(ticketCtx && window.Chart) {
-    ticketCtx.parentElement.innerHTML = '<div style="height:200px;display:flex;align-items:center;justify-content:center;color:var(--text-tertiary);font-size:12px">Sin ventas en el período</div>';
-  }
-
-  // Ticket promedio general por mes (todos los cobros, sin filtro de cliente)
-  const ticketGenPorMes = {};
+  // Datos por mes: totales generales
   const countGenPorMes = {};
-  activeMonths.forEach(m => { ticketGenPorMes[m] = 0; countGenPorMes[m] = 0; });
+  activeMonths.forEach(m => { countGenPorMes[m] = 0; });
   state.cobros.forEach(c => {
     if(!c.fecha) return;
     const ym = c.fecha.substring(0,7);
-    if(!Object.prototype.hasOwnProperty.call(ticketGenPorMes, ym)) return;
-    ticketGenPorMes[ym] += (c.monto||0);
-    countGenPorMes[ym]++;
+    if(Object.prototype.hasOwnProperty.call(ventasPorMes, ym)) countGenPorMes[ym]++;
   });
 
-  // Ticket promedio del cliente seleccionado por mes
-  let ticketClientePorMes = null;
+  // Datos por mes: cliente seleccionado
+  let facturacionClientePorMes = null;
+  let countClientePorMes = null;
   if(singleClient) {
-    ticketClientePorMes = {};
-    const countClientePorMes = {};
-    activeMonths.forEach(m => { ticketClientePorMes[m] = 0; countClientePorMes[m] = 0; });
+    facturacionClientePorMes = {};
+    countClientePorMes = {};
+    activeMonths.forEach(m => { facturacionClientePorMes[m] = 0; countClientePorMes[m] = 0; });
     state.cobros.filter(c => c.client === singleClient).forEach(c => {
       if(!c.fecha) return;
       const ym = c.fecha.substring(0,7);
-      if(!Object.prototype.hasOwnProperty.call(ticketClientePorMes, ym)) return;
-      ticketClientePorMes[ym] += (c.monto||0);
+      if(!Object.prototype.hasOwnProperty.call(facturacionClientePorMes, ym)) return;
+      facturacionClientePorMes[ym] += (c.monto||0);
       countClientePorMes[ym]++;
     });
-    activeMonths.forEach(m => {
-      ticketClientePorMes[m] = countClientePorMes[m] > 0 ? ticketClientePorMes[m] / countClientePorMes[m] : null;
-    });
   }
+
+  // Sync selector state
+  const modeEl = document.getElementById('dash-sales-mode');
+  if(modeEl) modeEl.value = dashSalesMode;
 
   if(dashSalesChartInst) { dashSalesChartInst.destroy(); dashSalesChartInst = null; }
   const salesCtx = document.getElementById('dashSalesChart');
@@ -1276,33 +1196,36 @@ function renderDashboard() {
     const dark = matchMedia('(prefers-color-scheme: dark)').matches;
     const gridColor = dark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)';
     const tickColor = dark ? '#888' : '#aaa';
+
+    const isTicket = dashSalesMode === 'ticket';
+
+    // Serie principal (totales)
+    const mainData = activeMonths.map(m =>
+      isTicket
+        ? (countGenPorMes[m] > 0 ? ventasPorMes[m] / countGenPorMes[m] : null)
+        : ventasPorMes[m]
+    );
     const datasets = [{
-      label: 'Total ventas',
-      data: activeMonths.map(m => ventasPorMes[m]),
+      label: isTicket ? 'Ticket prom. general' : 'Facturación total',
+      data: mainData,
       borderColor: '#1D9E75',
       backgroundColor: 'rgba(29,158,117,0.08)',
       tension: 0.3,
-      fill: true,
+      fill: !isTicket,
       pointRadius: 3,
       pointHoverRadius: 5,
-      yAxisID: 'y',
     }];
+
+    // Serie del cliente seleccionado (punteada azul)
     if(singleClient) {
+      const clientData = activeMonths.map(m =>
+        isTicket
+          ? (countClientePorMes[m] > 0 ? facturacionClientePorMes[m] / countClientePorMes[m] : null)
+          : facturacionClientePorMes[m]
+      );
       datasets.push({
-        label: 'Ticket prom. general',
-        data: activeMonths.map(m => countGenPorMes[m] > 0 ? ticketGenPorMes[m] / countGenPorMes[m] : null),
-        borderColor: '#1D9E75',
-        backgroundColor: 'transparent',
-        borderDash: [5, 3],
-        tension: 0.3,
-        fill: false,
-        pointRadius: 3,
-        pointHoverRadius: 5,
-        yAxisID: 'y2',
-      });
-      datasets.push({
-        label: 'Ticket prom. ' + singleClient,
-        data: activeMonths.map(m => ticketClientePorMes[m]),
+        label: isTicket ? 'Ticket prom. ' + singleClient : 'Facturación ' + singleClient,
+        data: clientData,
         borderColor: '#3B8BD4',
         backgroundColor: 'transparent',
         borderDash: [5, 3],
@@ -1310,10 +1233,9 @@ function renderDashboard() {
         fill: false,
         pointRadius: 3,
         pointHoverRadius: 5,
-        yAxisID: 'y2',
       });
     }
-    const hasSecondAxis = singleClient != null;
+
     dashSalesChartInst = new Chart(salesCtx, {
       type: 'line',
       data: { labels: activeMonths.map(monthLabel), datasets },
@@ -1321,13 +1243,12 @@ function renderDashboard() {
         responsive: true,
         maintainAspectRatio: false,
         plugins: {
-          legend: { display: hasSecondAxis, position: 'top', labels: { font: { size: 10 }, color: tickColor, boxWidth: 20 } },
-          tooltip: { callbacks: { label: ctx => ctx.dataset.label+': $'+Math.round(ctx.raw).toLocaleString('es-AR') } }
+          legend: { display: datasets.length > 1, position: 'top', labels: { font: { size: 10 }, color: tickColor, boxWidth: 20 } },
+          tooltip: { callbacks: { label: ctx => ctx.dataset.label + ': $' + Math.round(ctx.raw).toLocaleString('es-AR') } }
         },
         scales: {
           x: { grid: { color: gridColor }, ticks: { color: tickColor, font: { size: 10 } } },
-          y: { grid: { color: gridColor }, ticks: { color: tickColor, font: { size: 10 }, callback: v => fmtK(v) }, position: 'left' },
-          ...(hasSecondAxis ? { y2: { grid: { display: false }, ticks: { color: tickColor, font: { size: 10 }, callback: v => fmtK(v) }, position: 'right' } } : {})
+          y: { grid: { color: gridColor }, ticks: { color: tickColor, font: { size: 10 }, callback: v => fmtK(v) } }
         }
       }
     });
