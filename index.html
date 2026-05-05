@@ -1824,7 +1824,7 @@ function renderPnlTable() {
       : state.gastos.filter(g => g.concepto === 'Extraordinarios').reduce((s,g) => s + (g.monto||0), 0);
     const resultadoTotal = ventasTotal - costosTotal;
     const costosExExt    = costosTotal - extraordinariosTotal;
-    const resultadoExExt = resultadoTotal - extraordinariosTotal;
+    const resultadoExExt = resultadoTotal + extraordinariosTotal;
     const ticketProm     = cantVentas > 0 ? ventasTotal       / cantVentas : 0;
     const costoProm      = cantVentas > 0 ? costosTotal        / cantVentas : 0;
     const margenProm     = cantVentas > 0 ? resultadoTotal     / cantVentas : 0;
