@@ -1847,7 +1847,7 @@ function renderPnlTable() {
       `<div style="grid-column:1/-1;border-top:0.5px solid var(--border);margin:4px 0"></div>` +
       [
         { label:'Costo Promedio (ex. Extraordinarios)', val: cantVentas > 0 ? fmtPesos(costoPromExExt) : '—', sub:'(costos − extraordinarios) / cant. ventas', cls:'neg' },
-        { label:'Margen Promedio (ex. Extraordinarios)', val: cantVentas > 0 ? fmtPesos(margenPromExExt) : '—', sub:'(resultado + extraordinarios) / cant. ventas', cls: margenPromExExt >= 0 ? 'pos' : 'neg' },
+        { label:'Margen Promedio (ex. Extraordinarios)', val: cantVentas > 0 ? fmtPesos(margenPromExExt) : '—', sub:'(resultado neto − extraordinarios) / cant. ventas', cls: margenPromExExt >= 0 ? 'pos' : 'neg' },
       ].map(kpiCard).join('');
   }
 
