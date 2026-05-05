@@ -1819,11 +1819,14 @@ function renderPnlTable() {
     const cantVentas = periods.length > 0
       ? state.cobros.filter(c => c.fecha && periods.some(p => c.fecha.startsWith(p))).length
       : state.cobros.length;
+    const resultadoTotal = ventasTotal - costosTotal;
     const ticketProm = cantVentas > 0 ? ventasTotal / cantVentas : 0;
     const costoProm  = cantVentas > 0 ? costosTotal  / cantVentas : 0;
+    const margenProm = cantVentas > 0 ? resultadoTotal / cantVentas : 0;
     kpis.innerHTML = [
       { label:'Ticket Promedio', val: cantVentas > 0 ? fmtPesos(ticketProm) : '—', sub:'ventas / cantidad de ventas', cls:'' },
       { label:'Costo Promedio', val: cantVentas > 0 ? fmtPesos(costoProm) : '—', sub:'costos totales / cantidad de ventas', cls:'neg' },
+      { label:'Margen Promedio', val: cantVentas > 0 ? fmtPesos(margenProm) : '—', sub:'resultado neto / cantidad de ventas', cls: margenProm >= 0 ? 'pos' : 'neg' },
       { label:'Cantidad de ventas', val: cantVentas, sub: periods.length > 0 ? 'en el período seleccionado' : 'total', cls:'' },
     ].map(k=>`<div class="metric-card" style="padding:12px 14px">
       <div class="metric-label" style="font-size:11px">${k.label}</div>
