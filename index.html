@@ -879,6 +879,7 @@
         <select id="informe-month-sel" onchange="setInformeMonth(this.value)"
           style="font-size:13px;padding:6px 14px;border:1px solid var(--border-md);border-radius:6px;background:var(--bg-primary);color:var(--text-primary);cursor:pointer;outline:none">
         </select>
+        <button onclick="exportPDF('informe')" class="btn-secondary" style="font-size:12px">⬇ PDF</button>
         <span style="font-size:11px;color:var(--text-tertiary)">Informe generado automáticamente en base a los datos cargados</span>
       </div>
       <div id="informe-content"></div>
@@ -4681,6 +4682,142 @@ function exportPDF(sheet) {
       <tr style="font-weight:bold"><td>Total egresos</td>${totE.map(v=>`<td style="text-align:right">${v?fmt$(v):'—'}</td>`).join('')}<td style="text-align:right">${fmt$(totE.reduce((s,v)=>s+v,0))}</td></tr>
       <tr style="background:#eef;font-weight:bold"><td>Flujo de Fondos</td>${flujo.map(v=>`<td style="text-align:right;color:${v>=0?'#1D9E75':'#D85A30'}">${fmt$(v)}</td>`).join('')}<td style="text-align:right;color:${flujo.reduce((s,v)=>s+v,0)>=0?'#1D9E75':'#D85A30'}">${fmt$(flujo.reduce((s,v)=>s+v,0))}</td></tr>
     </tbody></table>`;
+
+  } else if(sheet === 'informe') {
+    if(!informeMonth) { toast('No hay período seleccionado en el Informe'); return; }
+    const ym   = informeMonth;
+    const prev = infPrev(ym);
+    const yr   = parseInt(ym.substring(0,4));
+    const mNum = parseInt(ym.substring(5,7));
+    const MO   = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+
+    // YTD months: Jan → selected month
+    const ytdMs = [];
+    for(let m=1; m<=mNum; m++) ytdMs.push(yr+'-'+String(m).padStart(2,'0'));
+
+    const f   = v => '$'+Math.abs(Math.round(v)).toLocaleString('es-AR');
+    const fS  = v => (v>=0?'+$':'-$')+Math.abs(Math.round(v)).toLocaleString('es-AR');
+    const varStr = (a,b) => {
+      if(b===0) return a>0?'nuevo':'—';
+      const p = Math.round((a-b)/Math.abs(b)*100);
+      return (p>0?'↑ +':'↓ ')+Math.abs(p)+'%';
+    };
+    const varCol = (a,b,lowerBetter) => {
+      if(b===0) return '#333';
+      const better = lowerBetter ? a<b : a>b;
+      return better ? '#1D9E75' : '#D85A30';
+    };
+    const secHead = (t,cols) => `<tr style="background:#f0f0f0"><td colspan="${cols}"><strong>${t}</strong></td></tr>`;
+
+    // ── P&L mes ────────────────────────────────────────────────
+    const pM  = infGetPnl(ym);
+    const pPr = infGetPnl(prev);
+    const pnlMonthHtml = `
+      <h2 class="sec-title">P&L — ${infFmt(ym)}</h2>
+      <table><thead><tr><th>Concepto</th><th>${infFmt(ym)}</th><th>${infFmt(prev)}</th><th>Var.</th></tr></thead><tbody>
+        ${secHead('VENTAS',4)}
+        <tr class="bold"><td>Total ventas</td><td>${f(pM.ventas)}</td><td class="prev">${f(pPr.ventas)}</td><td style="color:${varCol(pM.ventas,pPr.ventas,false)}">${varStr(pM.ventas,pPr.ventas)}</td></tr>
+        ${secHead('COSTOS & GASTOS',4)}
+        ${PNL_CONCEPTOS.map(c=>`<tr><td>${c}</td><td>${pM.costos[c]>0?f(pM.costos[c]):'—'}</td><td class="prev">${pPr.costos[c]>0?f(pPr.costos[c]):'—'}</td><td style="color:${varCol(pM.costos[c],pPr.costos[c],true)}">${pPr.costos[c]>0?varStr(pM.costos[c],pPr.costos[c]):'—'}</td></tr>`).join('')}
+        <tr class="bold"><td>Total costos</td><td>${f(pM.totalCostos)}</td><td class="prev">${f(pPr.totalCostos)}</td><td style="color:${varCol(pM.totalCostos,pPr.totalCostos,true)}">${varStr(pM.totalCostos,pPr.totalCostos)}</td></tr>
+        ${secHead('RESULTADO',4)}
+        <tr class="bold"><td>Resultado neto</td><td style="color:${pM.resultado>=0?'#1D9E75':'#D85A30'}">${f(pM.resultado)}</td><td class="prev">${f(pPr.resultado)}</td><td style="color:${varCol(pM.resultado,pPr.resultado,false)}">${varStr(pM.resultado,pPr.resultado)}</td></tr>
+        ${pM.ventas>0?`<tr><td>Margen %</td><td>${Math.round(pM.resultado/pM.ventas*100)}%</td><td class="prev">${pPr.ventas>0?Math.round(pPr.resultado/pPr.ventas*100)+'%':'—'}</td><td></td></tr>`:''}
+      </tbody></table>`;
+
+    // ── P&L YTD ────────────────────────────────────────────────
+    const ytdPD = {}; ytdMs.forEach(m=>{ytdPD[m]=infGetPnl(m);});
+    const ytdP = { ventas:ytdMs.reduce((s,m)=>s+ytdPD[m].ventas,0), costos:{}, totalCostos:ytdMs.reduce((s,m)=>s+ytdPD[m].totalCostos,0) };
+    PNL_CONCEPTOS.forEach(c=>{ytdP.costos[c]=ytdMs.reduce((s,m)=>s+(ytdPD[m].costos[c]||0),0);});
+    ytdP.resultado = ytdP.ventas - ytdP.totalCostos;
+    const pnlYtdHtml = `
+      <h2 class="sec-title page-break">P&L YTD — ${yr}</h2>
+      <table><thead><tr><th>Concepto</th><th>YTD</th>${ytdMs.map(m=>`<th>${MO[parseInt(m.substring(5,7))-1]}</th>`).join('')}</tr></thead><tbody>
+        ${secHead('VENTAS',2+ytdMs.length)}
+        <tr class="bold"><td>Total ventas</td><td>${f(ytdP.ventas)}</td>${ytdMs.map(m=>`<td>${ytdPD[m].ventas>0?f(ytdPD[m].ventas):'—'}</td>`).join('')}</tr>
+        ${secHead('COSTOS & GASTOS',2+ytdMs.length)}
+        ${PNL_CONCEPTOS.map(c=>`<tr><td>${c}</td><td>${ytdP.costos[c]>0?f(ytdP.costos[c]):'—'}</td>${ytdMs.map(m=>`<td>${ytdPD[m].costos[c]>0?f(ytdPD[m].costos[c]):'—'}</td>`).join('')}</tr>`).join('')}
+        <tr class="bold"><td>Total costos</td><td>${f(ytdP.totalCostos)}</td>${ytdMs.map(m=>`<td>${f(ytdPD[m].totalCostos)}</td>`).join('')}</tr>
+        ${secHead('RESULTADO',2+ytdMs.length)}
+        <tr class="bold"><td>Resultado neto</td><td style="color:${ytdP.resultado>=0?'#1D9E75':'#D85A30'}">${f(ytdP.resultado)}</td>${ytdMs.map(m=>`<td style="color:${ytdPD[m].resultado>=0?'#1D9E75':'#D85A30'}">${f(ytdPD[m].resultado)}</td>`).join('')}</tr>
+      </tbody></table>`;
+
+    // ── Cashflow mes ───────────────────────────────────────────
+    const cfM  = infGetCf(ym);
+    const cfPr = infGetCf(prev);
+    const cfMonthHtml = `
+      <h2 class="sec-title page-break">Cashflow — ${infFmt(ym)}</h2>
+      <table><thead><tr><th>Concepto</th><th>${infFmt(ym)}</th><th>${infFmt(prev)}</th><th>Var.</th></tr></thead><tbody>
+        ${secHead('INGRESOS',4)}
+        <tr><td>Ingresos cobrados</td><td>${f(cfM.ingresos)}</td><td class="prev">${f(cfPr.ingresos)}</td><td style="color:${varCol(cfM.ingresos,cfPr.ingresos,false)}">${varStr(cfM.ingresos,cfPr.ingresos)}</td></tr>
+        ${secHead('EGRESOS',4)}
+        <tr><td>Egresos pagados</td><td>${f(cfM.egresos)}</td><td class="prev">${f(cfPr.egresos)}</td><td style="color:${varCol(cfM.egresos,cfPr.egresos,true)}">${varStr(cfM.egresos,cfPr.egresos)}</td></tr>
+        ${secHead('RESULTADO',4)}
+        <tr class="bold"><td>Flujo neto</td><td style="color:${cfM.flujo>=0?'#1D9E75':'#D85A30'}">${fS(cfM.flujo)}</td><td class="prev" style="color:${cfPr.flujo>=0?'#1D9E75':'#D85A30'}">${fS(cfPr.flujo)}</td><td style="color:${varCol(cfM.flujo,cfPr.flujo,false)}">${varStr(cfM.flujo,cfPr.flujo)}</td></tr>
+      </tbody></table>`;
+
+    // ── Cashflow YTD ───────────────────────────────────────────
+    const cfConceptos = ['Sueldos y CCSS','Otros Gs. Personal','Gs. Administrativos','Alquiler Oficina','Expensas','Otros Gs. Oficina','Impuestos','Marketing Digital','Honorarios Profesionales','Mobiliario (Activo)','Equipos (Activo)','Extraordinarios','Préstamo'];
+    const ytdCobr = ytdMs.map(m=>state.cobros.filter(c=>c.estado==='cobrado'&&c.fechaCobro&&c.fechaCobro.startsWith(m)).reduce((s,c)=>s+(c.monto||0),0));
+    const ytdOI   = ytdMs.map(m=>getCfOtros(yr,parseInt(m.substring(5,7))-1));
+    const ytdTI   = ytdCobr.map((v,i)=>v+ytdOI[i]);
+    const ytdEgr  = {}; cfConceptos.forEach(c=>{ytdEgr[c]=ytdMs.map(m=>state.gastos.filter(g=>g.estado==='pagado'&&g.fechaPago&&g.fechaPago.startsWith(m)&&g.concepto===c).reduce((s,g)=>s+(g.monto||0),0));});
+    const ytdOE   = ytdMs.map(m=>getCfOtrosE(yr,parseInt(m.substring(5,7))-1));
+    const ytdTE   = ytdMs.map((_,i)=>cfConceptos.reduce((s,c)=>s+ytdEgr[c][i],0)+ytdOE[i]);
+    const ytdFl   = ytdTI.map((v,i)=>v-ytdTE[i]);
+    const sum     = a => a.reduce((s,v)=>s+v,0);
+    const cfYtdHtml = `
+      <h2 class="sec-title page-break">Cashflow YTD — ${yr}</h2>
+      <table><thead><tr><th>Concepto</th><th>Total</th>${ytdMs.map(m=>`<th>${MO[parseInt(m.substring(5,7))-1]}</th>`).join('')}</tr></thead><tbody>
+        ${secHead('INGRESOS',2+ytdMs.length)}
+        <tr><td>Cobranzas de Venta</td><td>${f(sum(ytdCobr))}</td>${ytdCobr.map(v=>`<td>${v?f(v):'—'}</td>`).join('')}</tr>
+        <tr class="bold"><td>Total ingresos</td><td>${f(sum(ytdTI))}</td>${ytdTI.map(v=>`<td>${v?f(v):'—'}</td>`).join('')}</tr>
+        ${secHead('EGRESOS',2+ytdMs.length)}
+        ${cfConceptos.map(c=>`<tr><td>${c}</td><td>${sum(ytdEgr[c])?f(sum(ytdEgr[c])):'—'}</td>${ytdEgr[c].map(v=>`<td>${v?f(v):'—'}</td>`).join('')}</tr>`).join('')}
+        <tr class="bold"><td>Total egresos</td><td>${f(sum(ytdTE))}</td>${ytdTE.map(v=>`<td>${v?f(v):'—'}</td>`).join('')}</tr>
+        <tr class="bold flujo"><td>Flujo de Fondos</td><td style="color:${sum(ytdFl)>=0?'#1D9E75':'#D85A30'}">${fS(sum(ytdFl))}</td>${ytdFl.map(v=>`<td style="color:${v>=0?'#1D9E75':'#D85A30'}">${fS(v)}</td>`).join('')}</tr>
+      </tbody></table>`;
+
+    // ── Informe completo ───────────────────────────────────────
+    const today2 = new Date();
+    const dias2  = d => d ? Math.floor((today2-new Date(d))/86400000) : null;
+    const deud   = state.cobros.filter(c=>c.estado!=='cobrado').sort((a,b)=>(a.fecha||'').localeCompare(b.fecha||''));
+    const acr    = state.gastos.filter(g=>g.estado!=='pagado').sort((a,b)=>(a.fecha||'').localeCompare(b.fecha||''));
+
+    const evoMs2 = []; for(let i=5;i>=0;i--){let y2=yr,m2=mNum-i;while(m2<=0){m2+=12;y2--;}evoMs2.push(y2+'-'+String(m2).padStart(2,'0'));}
+    const evoCosts2 = {}; PNL_CONCEPTOS.forEach(c=>{evoCosts2[c]=evoMs2.map(em=>state.gastos.filter(g=>g.fecha&&g.fecha.startsWith(em)&&g.concepto===c).reduce((s,g)=>s+(g.monto||0),0));});
+    const outliers2 = [];
+    PNL_CONCEPTOS.filter(c=>c!=='Extraordinarios').forEach(c=>{
+      const curV=evoCosts2[c][5]; if(!curV) return;
+      const prevVs=evoCosts2[c].slice(0,5).filter(v=>v>0);
+      if(!prevVs.length){outliers2.push({c,cur:curV,avg:0,diff:curV,pct:null,reason:'Sin historial en los últimos 5 meses'});return;}
+      const avg=sum(prevVs)/prevVs.length;
+      if(curV>avg*1.4){const p=Math.round((curV-avg)/avg*100);outliers2.push({c,cur:curV,avg,diff:curV-avg,pct:p,reason:`${p}% por encima del promedio`});}
+    });
+    outliers2.sort((a,b)=>(b.pct||999)-(a.pct||999));
+
+    const informeSection = `
+      <h2 class="sec-title page-break">Clientes que adeudan — pendientes de cobro</h2>
+      ${deud.length===0?'<p>No hay cobros pendientes.</p>':`<table><thead><tr><th>Fecha</th><th>Cliente</th><th>Descripción</th><th>Monto</th><th>Días</th></tr></thead><tbody>
+        ${deud.map(c=>{const d=dias2(c.fecha);return`<tr><td>${c.fecha||'—'}</td><td>${c.client||'—'}</td><td>${c.desc||'—'}</td><td>${f(c.monto||0)}</td><td style="color:${d>30?'#D85A30':d>14?'#b06000':'#333'}">${d!==null?d+'d':'—'}</td></tr>`;}).join('')}
+        <tr class="bold"><td colspan="3">Total adeudado</td><td style="color:#D85A30">${f(sum(deud.map(c=>c.monto||0)))}</td><td></td></tr>
+      </tbody></table>`}
+      <h2 class="sec-title">Lo que debemos — gastos pendientes de pago</h2>
+      ${acr.length===0?'<p>No hay gastos pendientes.</p>':`<table><thead><tr><th>Fecha</th><th>Concepto</th><th>Descripción</th><th>Monto</th><th>Días</th></tr></thead><tbody>
+        ${acr.map(g=>{const d=dias2(g.fecha);return`<tr><td>${g.fecha||'—'}</td><td>${g.concepto||'—'}</td><td>${g.desc||'—'}</td><td>${f(g.monto||0)}</td><td style="color:${d>30?'#D85A30':d>14?'#b06000':'#333'}">${d!==null?d+'d':'—'}</td></tr>`;}).join('')}
+        <tr class="bold"><td colspan="3">Total a pagar</td><td style="color:#D85A30">${f(sum(acr.map(g=>g.monto||0)))}</td><td></td></tr>
+      </tbody></table>`}
+      <h2 class="sec-title page-break">Evolución de costos por concepto — últimos 6 meses</h2>
+      <table><thead><tr><th>Concepto</th>${evoMs2.map((em,i)=>`<th${i===5?' style="font-weight:700;border-left:2px solid #bbb"':''}">${MO[parseInt(em.substring(5,7))-1]} ${em.substring(0,4)}</th>`).join('')}<th>Var.</th></tr></thead><tbody>
+        ${PNL_CONCEPTOS.map(c=>{const vs=evoCosts2[c];const vP=vs[4]>0?Math.round((vs[5]-vs[4])/vs[4]*100):null;const vS=vP===null?'nuevo':vP===0?'—':(vP>0?'↑ +':'↓ ')+Math.abs(vP)+'%';return`<tr><td>${c}</td>${vs.map((v,i)=>`<td${i===5?' style="font-weight:600;border-left:2px solid #bbb"':''}>${v>0?f(v):'—'}</td>`).join('')}<td style="color:${vP>0?'#D85A30':vP<0?'#1D9E75':'#666'}">${vS}</td></tr>`;}).join('')}
+      </tbody></table>
+      <h2 class="sec-title">Gastos inusuales o desalineados del trend</h2>
+      ${outliers2.length===0?'<p>No se detectaron gastos inusuales para este mes.</p>':`<table><thead><tr><th>Concepto</th><th>Este mes</th><th>Prom. 5m</th><th>Diferencia</th><th>Desvío</th><th>Detalle</th></tr></thead><tbody>
+        ${outliers2.map(o=>`<tr><td>${o.c}</td><td>${f(o.cur)}</td><td>${o.avg>0?f(Math.round(o.avg)):'—'}</td><td style="color:#D85A30">+${f(Math.round(o.diff))}</td><td style="color:#D85A30;font-weight:600">${o.pct!==null?'+'+o.pct+'%':'nuevo'}</td><td>${o.reason}</td></tr>`).join('')}
+      </tbody></table>`}`;
+
+    title = 'Informe de Gestión — ' + infFmt(ym);
+    html  = pnlMonthHtml + pnlYtdHtml + cfMonthHtml + cfYtdHtml + informeSection;
   }
 
   const w = window.open('', '_blank');
@@ -4689,11 +4826,18 @@ function exportPDF(sheet) {
       body { font-family: Arial, sans-serif; font-size: 11px; color: #333; margin: 24px; }
       h1 { font-size: 16px; margin-bottom: 4px; }
       .subtitle { font-size: 11px; color: #888; margin-bottom: 20px; }
-      table { width: 100%; border-collapse: collapse; margin-bottom: 24px; }
-      th { background: #f0f0f0; padding: 6px 8px; text-align: left; border-bottom: 1.5px solid #ccc; font-size: 10px; }
-      td { padding: 5px 8px; border-bottom: 0.5px solid #e0e0e0; }
-      @page { size: landscape; margin: 15mm; }
-      @media print { body { margin: 0; } }
+      h2.sec-title { font-size: 13px; font-weight: 700; color: #111; margin: 24px 0 8px; border-bottom: 1.5px solid #ccc; padding-bottom: 4px; }
+      table { width: 100%; border-collapse: collapse; margin-bottom: 20px; font-size: 11px; }
+      th { background: #f0f0f0; padding: 6px 8px; text-align: right; border-bottom: 1.5px solid #ccc; font-size: 10px; font-weight: 600; }
+      th:first-child { text-align: left; }
+      td { padding: 5px 8px; border-bottom: 0.5px solid #e8e8e8; text-align: right; }
+      td:first-child { text-align: left; }
+      tr.bold td { font-weight: 600; }
+      tr.flujo { background: #f0f4ff; }
+      td.prev { color: #999; }
+      .page-break { page-break-before: always; }
+      @page { size: landscape; margin: 12mm; }
+      @media print { body { margin: 0; } .page-break { page-break-before: always; } }
     </style>
   </head><body>
     <h1>${title}</h1>
